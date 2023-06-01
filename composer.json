@@ -1,0 +1,44 @@
+{
+    "name": "khanhartisan/laravel-backbone",
+    "description": "Backbone for Laravel projects",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "KhanhArtisan\\LaravelBackbone\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "KhanhArtisan\\LaravelBackbone\\Tests\\": "tests/",
+            "App\\": "stubs/app/",
+            "Database\\Factories\\": "stubs/database/factories/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Khanh",
+            "email": "khanh.artisan@gmail.com"
+        }
+    ],
+    "require-dev": {
+        "orchestra/testbench": "^8.5",
+        "nunomaduro/collision": "^7.4"
+    },
+    "require": {
+        "php": "^8.1",
+        "illuminate/http": "^10.8",
+        "illuminate/database": "^10.8",
+        "symfony/finder": "^6.2"
+    },
+    "scripts": {
+        "test": "./vendor/bin/phpunit tests"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "KhanhArtisan\\LaravelBackbone\\BackboneServiceProvider"
+            ]
+        }
+    }
+}

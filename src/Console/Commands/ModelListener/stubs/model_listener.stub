@@ -1,0 +1,51 @@
+<?php
+
+namespace {{ namespace }};
+
+use {{ modelClass }};
+use KhanhArtisan\LaravelBackbone\ModelListener\ModelListener;
+use KhanhArtisan\LaravelBackbone\ModelListener\ModelListenerInterface;
+
+class {{ class }} extends ModelListener implements ModelListenerInterface
+{
+    /**
+     * Listener with higher priority will run first.
+     *
+     * @return int
+     */
+    public function priority(): int
+    {
+        return {{ priority }};
+    }
+
+    /**
+     * Listen to events of the given model.
+     *
+     * @return string
+     */
+    public function modelClass(): string
+    {
+        return {{ modelName }}::class;
+    }
+
+    /**
+     * List of events to listen to.
+     *
+     * @return array<string>
+     */
+    public function events(): array
+    {
+        return {{ events }};
+    }
+
+    /**
+     * Handle the event.
+     *
+     * @param {{ modelName }} ${{ modelVariableName }}
+     * @return void
+     */
+    protected function _handle({{ modelName }} ${{ modelVariableName }}): void
+    {
+        // TODO: Implement the handle method
+    }
+}
