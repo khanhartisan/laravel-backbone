@@ -10,14 +10,14 @@ class Cache
      * Try to get a cache by the given key.
      * If not found, call the user given function, put the result to the cache with the same key and return.
      *
-     * @param callable $callable
      * @param string $key
+     * @param callable $callable
      * @param \DateTimeInterface|\DateInterval|int|null $ttl
      * @param string|null $store
      * @return mixed
      * @throws \Psr\SimpleCache\InvalidArgumentException
      */
-    public static function getOrCall(callable $callable, string $key, \DateTimeInterface|\DateInterval|int|null $ttl = null, ?string $store = null): mixed
+    public static function getOrCall(string $key, callable $callable, \DateTimeInterface|\DateInterval|int|null $ttl = null, ?string $store = null): mixed
     {
         $cacheInstance = LaravelCache::store($store);
         if ($cacheInstance->has($key)) {
