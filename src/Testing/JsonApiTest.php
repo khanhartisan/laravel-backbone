@@ -4,11 +4,14 @@ namespace KhanhArtisan\LaravelBackbone\Testing;
 
 use Illuminate\Testing\TestResponse;
 
+// TODO: API requests acting as user
 trait JsonApiTest
 {
     protected string $jsonApiDataWrap = 'data';
 
     protected string $jsonApiIdField = 'id';
+
+    protected bool $dumpErrorResponse = true;
 
     /**
      * Basic crud test script
@@ -165,8 +168,16 @@ trait JsonApiTest
     protected function _testStore(string $uri, array $data, ?array $expectedResponseData = null, int $expectedCode = 201): TestResponse
     {
         $response = $this->postJson($uri, $data);
-        $response->assertStatus($expectedCode);
-        $response->assertJson(is_null($expectedResponseData) ? ($this->jsonApiDataWrap ? [$this->jsonApiDataWrap => $data] : $data) : $expectedResponseData);
+
+        try {
+            $response->assertStatus($expectedCode);
+            $response->assertJson(is_null($expectedResponseData) ? ($this->jsonApiDataWrap ? [$this->jsonApiDataWrap => $data] : $data) : $expectedResponseData);
+        } catch (\Exception $e) {
+            if ($this->dumpErrorResponse) {
+                $this->_dumpResponse($response);
+            }
+            throw $e;
+        }
 
         return $response;
     }
@@ -183,8 +194,16 @@ trait JsonApiTest
     protected function _testUpdate(string $uri, array $data, ?array $expectedResponseData = null, int $expectedCode = 200): TestResponse
     {
         $response = $this->patchJson($uri, $data);
-        $response->assertStatus($expectedCode);
-        $response->assertJson(is_null($expectedResponseData) ? ($this->jsonApiDataWrap ? [$this->jsonApiDataWrap => $data] : $data) : $expectedResponseData);
+
+        try {
+            $response->assertStatus($expectedCode);
+            $response->assertJson(is_null($expectedResponseData) ? ($this->jsonApiDataWrap ? [$this->jsonApiDataWrap => $data] : $data) : $expectedResponseData);
+        } catch (\Exception $e) {
+            if ($this->dumpErrorResponse) {
+                $this->_dumpResponse($response);
+            }
+            throw $e;
+        }
 
         return $response;
     }
@@ -200,10 +219,18 @@ trait JsonApiTest
     protected function _testIndex(string $uri, ?array $expectedResponseData = null, int $expectedCode = 200): TestResponse
     {
         $response = $this->getJson($uri);
-        $response->assertStatus($expectedCode);
 
-        if (is_array($expectedResponseData)) {
-            $response->assertJson($expectedResponseData);
+        try {
+            $response->assertStatus($expectedCode);
+
+            if (is_array($expectedResponseData)) {
+                $response->assertJson($expectedResponseData);
+            }
+        } catch (\Exception $e) {
+            if ($this->dumpErrorResponse) {
+                $this->_dumpResponse($response);
+            }
+            throw $e;
         }
 
         return $response;
@@ -220,10 +247,18 @@ trait JsonApiTest
     public function _testShow(string $uri, ?array $expectedResponseData = null, int $expectedCode = 200): TestResponse
     {
         $response = $this->getJson($uri);
-        $response->assertStatus($expectedCode);
 
-        if (is_array($expectedResponseData)) {
-            $response->assertJson($expectedResponseData);
+        try {
+            $response->assertStatus($expectedCode);
+
+            if (is_array($expectedResponseData)) {
+                $response->assertJson($expectedResponseData);
+            }
+        } catch (\Exception $e) {
+            if ($this->dumpErrorResponse) {
+                $this->_dumpResponse($response);
+            }
+            throw $e;
         }
 
         return $response;
@@ -240,12 +275,31 @@ trait JsonApiTest
     public function _testDestroy(string $uri, ?array $expectedResponseData = null, int $expectedCode = 200): TestResponse
     {
         $response = $this->deleteJson($uri);
-        $response->assertStatus($expectedCode);
 
-        if (is_array($expectedResponseData)) {
-            $response->assertJson($expectedResponseData);
+        try {
+            $response->assertStatus($expectedCode);
+
+            if (is_array($expectedResponseData)) {
+                $response->assertJson($expectedResponseData);
+            }
+        } catch (\Exception $e) {
+            if ($this->dumpErrorResponse) {
+                $this->_dumpResponse($response);
+            }
+            throw $e;
         }
 
         return $response;
+    }
+
+    protected function _dumpResponse(TestResponse $response): void
+    {
+        dump('--- Dump Response Start ---');
+        dump('Status: '.$response->getStatusCode());
+        dump('Headers:');
+        $response->dumpHeaders();
+        dump('Body:');
+        $response->dump();
+        dump('--- Dump Response End ---');
     }
 }
