@@ -8,11 +8,10 @@ use KhanhArtisan\LaravelBackbone\Testing\JsonCrudTestData;
 
 class JsonControllerTest extends TestCase
 {
-    use JsonApiTest;
-
     public function test_basic_crud()
     {
-        $this->_testBasicCrud(
+        $jsonApiTest = new JsonApiTest($this);
+        $jsonApiTest->testBasicCrud(
             'posts',
             (new JsonCrudTestData())
                 ->setStoreData([
