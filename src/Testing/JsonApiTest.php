@@ -304,7 +304,7 @@ class JsonApiTest
         dump('Headers:');
         $response->dumpHeaders();
         dump('Body:');
-        $response->dump();
+        dump($response->getContent());
         dump('--- Dump Response End ---');
     }
 }

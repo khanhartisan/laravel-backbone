@@ -2,6 +2,7 @@
 
 namespace KhanhArtisan\LaravelBackbone\Http\Controllers;
 
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
 use KhanhArtisan\LaravelBackbone\Http\Controllers\Traits\JsonStore;
@@ -12,6 +13,7 @@ use KhanhArtisan\LaravelBackbone\Http\Controllers\Traits\JsonUpdate;
 
 abstract class JsonController extends Controller
 {
+    use AuthorizesRequests;
     use JsonIndex;
     use JsonShow;
     use JsonStore;
