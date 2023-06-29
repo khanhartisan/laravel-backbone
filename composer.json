@@ -23,7 +23,8 @@
     ],
     "require-dev": {
         "orchestra/testbench": "^8.5",
-        "nunomaduro/collision": "^7.4"
+        "nunomaduro/collision": "^7.4",
+        "laravel/sail": "^1.23"
     },
     "require": {
         "php": "^8.1",
