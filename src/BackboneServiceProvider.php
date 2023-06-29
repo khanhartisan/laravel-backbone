@@ -6,6 +6,10 @@ use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Support\ServiceProvider;
 use KhanhArtisan\LaravelBackbone\Console\Commands\ModelListener\MakeCommand;
 use KhanhArtisan\LaravelBackbone\Console\Commands\ModelListener\ShowCommand;
+use KhanhArtisan\LaravelBackbone\Contracts\Counter\Recorder;
+use KhanhArtisan\LaravelBackbone\Contracts\Counter\Store;
+use KhanhArtisan\LaravelBackbone\Counter\RecorderManager;
+use KhanhArtisan\LaravelBackbone\Counter\StoreManager;
 use KhanhArtisan\LaravelBackbone\ModelListener\ModelListenerManager;
 use KhanhArtisan\LaravelBackbone\ModelListener\Observer;
 
@@ -16,6 +20,9 @@ class BackboneServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Config
+        $this->mergeConfigFrom(__DIR__ . '/../config/counter.php', 'counter');
+
         // Register model listener manager
         $this->app->singleton(ModelListenerManager::class, ModelListenerManager::class);
     }
@@ -35,6 +42,11 @@ class BackboneServiceProvider extends ServiceProvider
 
         $this->registerModelObservers();
         $this->registerModelListeners();
+        $this->registerCounter();
+
+        $this->publishes([
+            __DIR__ . '/../config/counter.php' => config_path('counter.php')
+        ]);
     }
 
     /**
@@ -75,5 +87,16 @@ class BackboneServiceProvider extends ServiceProvider
         /** @var ModelListenerManager $manager */
         $manager = $this->app->make(ModelListenerManager::class);
         $manager->registerModelListenersFrom($this->app->getNamespace().'ModelListeners', $path);
+    }
+
+    /**
+     * Register counter
+     *
+     * @return void
+     */
+    protected function registerCounter(): void
+    {
+        $this->app->singleton(Store::class, StoreManager::class);
+        $this->app->singleton(Recorder::class, RecorderManager::class);
     }
 }

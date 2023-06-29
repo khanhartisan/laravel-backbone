@@ -9,10 +9,10 @@ interface Store
     /**
      * Upsert record data
      *
-     * @param Record|Record[] $record
+     * @param Record|Record[] $records
      * @return bool
      */
-    public function upsert(Record|array $record): bool;
+    public function upsert(Record|array $records): bool;
 
     /**
      * Sync interval records.
