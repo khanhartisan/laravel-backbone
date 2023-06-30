@@ -23,9 +23,9 @@ services:
         networks:
             - laravel-backbone
         depends_on:
-            - mysql
-            - pgsql
-            - redis
+            - laravel.backbone.mysql
+            - laravel.backbone.pgsql
+            - laravel.backbone.redis
     laravel.backbone.mysql:
         image: 'mysql/mysql-server:8.0'
         ports:
@@ -50,7 +50,7 @@ services:
                 - '-p${DB_PASSWORD}'
             retries: 3
             timeout: 5s
-    pgsql:
+    laravel.backbone.pgsql:
         image: 'postgres:15'
         ports:
             - '${FORWARD_DB_PORT:-5432}:5432'
@@ -75,7 +75,7 @@ services:
                 - '${DB_USERNAME}'
             retries: 3
             timeout: 5s
-    redis:
+    laravel.backbone.redis:
         image: 'redis:alpine'
         ports:
             - '${FORWARD_REDIS_PORT:-6379}:6379'

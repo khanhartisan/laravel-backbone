@@ -41,11 +41,17 @@ abstract class TestCase extends \Orchestra\Testbench\TestCase
     protected function defineEnvironment($app)
     {
         tap($app->make('config'), function (Repository $config) {
+
+            // Database
             $config->set('database.default', 'mysql');
             $config->set('database.connections.mysql.host', 'laravel.backbone.mysql');
             $config->set('database.connections.mysql.database', 'laravel_backbone');
             $config->set('database.connections.mysql.username', 'dbuser');
             $config->set('database.connections.mysql.password', 'password');
+
+            // Redis
+            $config->set('database.redis.cache.host', 'laravel.backbone.redis');
+            $config->set('database.redis.cache.password', null);
         });
     }
 }
