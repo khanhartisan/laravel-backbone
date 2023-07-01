@@ -15,9 +15,11 @@ use KhanhArtisan\LaravelBackbone\Support\Enum;
 
 class DatabaseStore implements Store
 {
-    public function __construct(protected Connection $connection, protected string $table = 'counter')
+    public function __construct(protected Connection $connection, protected string $table = 'counter', protected string $driver = 'mysql')
     {
-        //
+        if (!in_array($this->driver, ['mysql', 'pgsql'])) {
+            throw new \InvalidArgumentException('Connection driver '.$this->driver.' is not supported.');
+        }
     }
 
     /**
@@ -48,7 +50,7 @@ class DatabaseStore implements Store
                     'partition', 'interval', 'time', 'reference'
                 ],
                 [
-                    'value' => DB::raw($this->table.'.value + excluded.value')
+                    'value' => DB::raw($this->table.'.value + '.($this->driver === 'pgsql' ? 'excluded.value' : 'VALUES(`value`)'))
                 ]
             );
     }

@@ -2,10 +2,13 @@
 
 namespace KhanhArtisan\LaravelBackbone\Tests;
 
+use Illuminate\Config\Repository;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Str;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\Interval;
+use KhanhArtisan\LaravelBackbone\Contracts\Counter\Record;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\Recorder;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\Store;
 
@@ -16,7 +19,29 @@ class CounterTest extends TestCase
         $this->_testRecorder('redis');
     }
 
-    private function _testRecorder(string $driver)
+    public function test_mysql_store()
+    {
+        /** @var Repository $config */
+        $config = app()->make('config');
+
+        // Test mysql
+        $this->refreshDatabase('mysql');
+        $config->set('counter.stores.database.connection', 'mysql');
+        $this->_testStore('database');
+    }
+
+    public function test_pgsql_store()
+    {
+        /** @var Repository $config */
+        $config = app()->make('config');
+
+        // Test pgsql
+        $this->refreshDatabase('pgsql');
+        $config->set('counter.stores.database.connection', 'pgsql');
+        $this->_testStore('database');
+    }
+
+    protected function _testRecorder(string $driver)
     {
         $recorder = $this->makeRecorder($driver);
 
@@ -88,13 +113,39 @@ class CounterTest extends TestCase
         }
     }
 
-    private function makeRecorder(?string $driver = null): Recorder
+    protected function _testStore(string $driver)
     {
+        $store = $this->makeStore($driver);
+
+        // Test upsert single record
+        $time = time();
+        $record = new Record(
+            Str::random(),
+            Interval::FIVE_MINUTES,
+            $time,
+            Str::random(),
+            rand(123, 999)
+        );
+        $this->assertTrue($store->upsert($record));
+    }
+
+    protected function makeRecorder(?string $driver = null): Recorder
+    {
+        \KhanhArtisan\LaravelBackbone\Support\Facades\Counter\Recorder::forgetDrivers();
         return \KhanhArtisan\LaravelBackbone\Support\Facades\Counter\Recorder::driver($driver);
     }
 
-    private function makeStore(?string $driver = null): Store
+    protected function makeStore(?string $driver = null): Store
     {
+        \KhanhArtisan\LaravelBackbone\Support\Facades\Counter\Store::forgetDrivers();
         return \KhanhArtisan\LaravelBackbone\Support\Facades\Counter\Store::driver($driver);
+    }
+
+    protected function refreshDatabase(string $database): void
+    {
+        Artisan::call('migrate:refresh', [
+            '--database' => $database,
+            '--path' => '../database/migrations/2023_07_01_164322_create_counter_table.php'
+        ]);
     }
 }

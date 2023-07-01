@@ -13,6 +13,7 @@ abstract class TestCase extends \Orchestra\Testbench\TestCase
     protected function defineDatabaseMigrations(): void
     {
         $this->loadMigrationsFrom(__DIR__.'/../stubs/database/migrations');
+        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
     }
 
     protected function getBasePath()
@@ -42,12 +43,19 @@ abstract class TestCase extends \Orchestra\Testbench\TestCase
     {
         tap($app->make('config'), function (Repository $config) {
 
-            // Database
             $config->set('database.default', 'mysql');
+
+            // Mysql database
             $config->set('database.connections.mysql.host', 'laravel.backbone.mysql');
             $config->set('database.connections.mysql.database', 'laravel_backbone');
             $config->set('database.connections.mysql.username', 'dbuser');
             $config->set('database.connections.mysql.password', 'password');
+
+            // Pgsql database
+            $config->set('database.connections.pgsql.host', 'laravel.backbone.pgsql');
+            $config->set('database.connections.pgsql.database', 'laravel_backbone');
+            $config->set('database.connections.pgsql.username', 'dbuser');
+            $config->set('database.connections.pgsql.password', 'password');
 
             // Redis
             $config->set('database.redis.cache.host', 'laravel.backbone.redis');

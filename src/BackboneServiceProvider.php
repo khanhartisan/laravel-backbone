@@ -43,10 +43,6 @@ class BackboneServiceProvider extends ServiceProvider
         $this->registerModelObservers();
         $this->registerModelListeners();
         $this->registerCounter();
-
-        $this->publishes([
-            __DIR__ . '/../config/counter.php' => config_path('counter.php')
-        ]);
     }
 
     /**
@@ -96,6 +92,16 @@ class BackboneServiceProvider extends ServiceProvider
      */
     protected function registerCounter(): void
     {
+        // Publish config
+        $this->publishes([
+            __DIR__ . '/../config/counter.php' => config_path('counter.php')
+        ], 'laravel-backbone-counter-config');
+
+        // Publish migrations
+        $this->publishes([
+            __DIR__.'/../database/migrations/2023_07_01_164322_create_counter_table.php' => database_path('migrations')
+        ], 'laravel-backbone-counter-migration');
+
         $this->app->singleton(Store::class, StoreManager::class);
         $this->app->singleton(Recorder::class, RecorderManager::class);
     }

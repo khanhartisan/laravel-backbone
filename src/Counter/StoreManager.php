@@ -22,6 +22,13 @@ class StoreManager extends Manager
     {
         $config = $this->getConfig('database');
         $connection = $config['connection'];
-        return new DatabaseStore(DB::connection($connection));
+
+        $connectionDriver = config('database.connections.'.$connection.'.driver');
+
+        return new DatabaseStore(
+            DB::connection($connection),
+            $config['table'],
+            $connectionDriver
+        );
     }
 }
