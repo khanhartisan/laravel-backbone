@@ -31,9 +31,6 @@ class RedisRecorder implements Recorder
 
             $time = $eventTime ?: time();
 
-            // Make hash from reference
-            $hash = $this->makeHash($reference);
-
             // Record hit if shard key found
             if ($shardKey = $this->getShardKeyForReference($partitionKey, $interval, $time, $reference)) {
                 $this->redis
@@ -43,8 +40,8 @@ class RedisRecorder implements Recorder
             }
 
             // Find a shard to record hit
-            for ($i = 1; $i <= strlen($hash); $i++) {
-                $shardKey = new ShardKey(substr($hash, 0, $i));
+            for ($i = 1; $i <= 40; $i++) {
+                $shardKey = new ShardKey($reference, $i);
 
                 // Skip if shard is full
                 if ($currentShardSize = $this->getShardSize($partitionKey, $interval, $time, $shardKey)
@@ -100,10 +97,8 @@ class RedisRecorder implements Recorder
                                             int $time,
                                             int|string $reference): ?ShardKey
     {
-        $hash = $this->makeHash($reference);
-
         for ($i = 1; $i <= $this->getMaxShardKeyLength($partitionKey, $interval, $time); $i++) {
-            $shardKey = new ShardKey(substr($hash, 0, $i));
+            $shardKey = new ShardKey($reference, $i);
             if ($this->redis->tags($this->tags($partitionKey, $interval, $time, $shardKey))->has($reference)) {
                 return $shardKey;
             }
@@ -319,16 +314,5 @@ class RedisRecorder implements Recorder
         }
 
         return $tags;
-    }
-
-    /**
-     * Return hash for the given reference string
-     *
-     * @param string $reference
-     * @return string
-     */
-    protected function makeHash(string $reference): string
-    {
-        return sha1($reference);
     }
 }

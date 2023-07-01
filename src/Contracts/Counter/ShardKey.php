@@ -2,16 +2,17 @@
 
 namespace KhanhArtisan\LaravelBackbone\Contracts\Counter;
 
-class ShardKey
+final class ShardKey
 {
+    protected string $key;
+
     /**
-     * @param string $key
+     * @param string $data
+     * @param int $length
      */
-    public function __construct(protected string $key)
+    public function __construct(protected string $data, protected int $length)
     {
-        if (!ctype_xdigit($this->key)) {
-            throw new \InvalidArgumentException($key.' is not a valid shard key.');
-        }
+        $this->key = substr(sha1($data), 0, $this->length);
     }
 
     /**
