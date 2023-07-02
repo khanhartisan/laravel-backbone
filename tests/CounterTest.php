@@ -49,8 +49,11 @@ class CounterTest extends TestCase
         foreach (Interval::cases() as $interval) {
 
             $partitionKey = Str::random();
-            $reference = Str::random();
+            $reference = '1'; // 35
+            $reference2 = '2aaaaaaaaa'; // 32
+            $reference3 = '2aaaaaaaaae'; // 39
             $value = rand(123, 9999);
+            $value2 = rand(1, 9999);
             $time = time();
 
             // Test record successfully
@@ -59,7 +62,17 @@ class CounterTest extends TestCase
                 $interval,
                 $reference,
                 $value,
-                1000,
+                2,
+                $time
+            ));
+
+            // Test 2nd record
+            $this->assertTrue($recorder->record(
+                $partitionKey,
+                $interval,
+                $reference,
+                $value2,
+                2,
                 $time
             ));
 
@@ -86,6 +99,53 @@ class CounterTest extends TestCase
                 $shardKey
             ));
 
+            // Upsert 2 other records
+            $this->assertTrue($recorder->record(
+                $partitionKey,
+                $interval,
+                $reference2,
+                $value,
+                2,
+                $time
+            ));
+            $this->assertTrue($recorder->record(
+                $partitionKey,
+                $interval,
+                $reference3,
+                $value,
+                2,
+                $time
+            ));
+
+            // Test get ShardKey for ref 3
+            $this->assertNotNull($shardKey3 = $recorder->getShardKeyForReference(
+                $partitionKey,
+                $interval,
+                $time,
+                $reference3
+            ));
+            $this->assertEquals('39', $shardKey3->getKey());
+
+            // Test get shard3 records
+            $this->assertCount(1, $shard3Records = $recorder->getShardRecords($partitionKey, $interval, $time, $shardKey3));
+            $this->assertEquals($reference3, $shard3Records[0]->getReference());
+            $this->assertEquals($value, $shard3Records[0]->getValue());
+
+            // Recheck max shard key length (should be 2)
+            $this->assertEquals(2, $recorder->getMaxShardKeyLength(
+                $partitionKey,
+                $interval,
+                $time
+            ));
+
+            // Recheck shard size (should be 2)
+            $this->assertEquals(2, $recorder->getShardSize(
+                $partitionKey,
+                $interval,
+                $time,
+                $shardKey
+            ));
+
             // Test get shard records
             $records = $recorder->getShardRecords(
                 $partitionKey,
@@ -93,8 +153,16 @@ class CounterTest extends TestCase
                 $time,
                 $shardKey
             );
-            $this->assertCount(1, $records);
-            $this->assertEquals($value, $records[0]->getValue());
+            $this->assertCount(2, $records);
+            foreach ($records as $record) {
+                if ($record->getReference() === $reference) {
+                    $this->assertEquals($value + $value2, $record->getValue());
+                } elseif ($record->getReference() === $reference2) {
+                    $this->assertEquals($value, $record->getValue());
+                } else {
+                    $this->assertTrue(false);
+                }
+            }
 
             // Test flush
             $this->assertTrue($recorder->flush(

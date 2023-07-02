@@ -39,11 +39,11 @@ class Record
     }
 
     /**
-     * @return string|int
+     * @return string
      */
-    public function getReference(): string|int
+    public function getReference(): string
     {
-        return $this->reference;
+        return strval($this->reference);
     }
 
     /**
@@ -57,10 +57,10 @@ class Record
     /**
      * Get record reference id in the store
      *
-     * @return string|int|null
+     * @return string|null
      */
-    public function getStoreReference(): null|string|int
+    public function getStoreReference(): ?string
     {
-        return $this->storeReference;
+        return strval($this->storeReference);
     }
 }
