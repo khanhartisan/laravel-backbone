@@ -88,26 +88,53 @@ class DatabaseStore implements Store
                 $query->take($limit);
             }
 
-            $fromRecords = $query->lockForUpdate()->get()->unique('reference');
+            $fromRecords = $query->lockForUpdate()->get();
 
+            // Return if no records
             if (!$fromRecords->count()) {
                 return [];
             }
 
             // Sync
             foreach ($toInterval as $_toInterval) {
-                $this->upsert(
-                    $fromRecords
-                        ->map(
-                            fn ($record) => new Record(
-                                $record->partition,
+
+                // Build upsert data
+                $upsertData = [];
+                foreach ($fromRecords as $fromRecord) {
+
+                    if (!isset($upsertData[$fromRecord->partition])) {
+                        $upsertData[$fromRecord->partition] = [];
+                    }
+
+                    if (!isset($upsertData[$fromRecord->partition][$fromRecord->reference])) {
+                        $upsertData[$fromRecord->partition][$fromRecord->reference] = [];
+                    }
+
+                    $toRecordTime = TimeHelper::startTime($_toInterval, $fromRecord->time);
+                    if (!isset($upsertData[$fromRecord->partition][$fromRecord->reference][$toRecordTime])) {
+                        $upsertData[$fromRecord->partition][$fromRecord->reference][$toRecordTime] = $fromRecord->value;
+                    } else {
+                        $upsertData[$fromRecord->partition][$fromRecord->reference][$toRecordTime] += $fromRecord->value;
+                    }
+                }
+
+                // Build upsert records
+                $upsertRecords = [];
+                foreach ($upsertData as $partition => $referenceTimeValue) {
+                    foreach ($referenceTimeValue as $reference => $timeValue) {
+                        foreach ($timeValue as $_time => $_value) {
+                            $upsertRecords[] = new Record(
+                                $partition,
                                 $_toInterval,
-                                TimeHelper::startTime($_toInterval, $record->time),
-                                $record->reference,
-                                $record->value
-                            )
-                        )->toArray()
-                );
+                                $_time,
+                                $reference,
+                                $_value
+                            );
+                        }
+                    }
+                }
+
+                $this->upsert($upsertRecords);
             }
 
             // Update flag
@@ -240,7 +267,7 @@ class DatabaseStore implements Store
     {
         return $this
             ->connection
-            ->table('counters')
+            ->table($this->table)
             ->where('partition', $partitionKey)
             ->where('interval', $interval->value)
             ->where('reference', $reference)
@@ -271,7 +298,7 @@ class DatabaseStore implements Store
 
         if ($record = $this
             ->connection
-            ->table('counters')
+            ->table($this->table)
             ->where('partition', $partitionKey)
             ->where('interval', $interval->value)
             ->where('time', $time)
@@ -320,7 +347,7 @@ class DatabaseStore implements Store
     {
         $query = $this
             ->connection
-            ->table('counters')
+            ->table($this->table)
             ->where('interval', $interval->value)
             ->where('time', '<=', $time);
 

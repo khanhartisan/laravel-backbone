@@ -11,6 +11,7 @@ use KhanhArtisan\LaravelBackbone\Contracts\Counter\Interval;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\Record;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\Recorder;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\Store;
+use KhanhArtisan\LaravelBackbone\Contracts\Counter\TimeHelper;
 
 class CounterTest extends TestCase
 {
@@ -117,16 +118,156 @@ class CounterTest extends TestCase
     {
         $store = $this->makeStore($driver);
 
+        $interval = Interval::ONE_MINUTE;
+
         // Test upsert single record
-        $time = time();
-        $record = new Record(
-            Str::random(),
-            Interval::FIVE_MINUTES,
+        $partitionKey = Str::random();
+        $time = TimeHelper::startTime(Interval::FIVE_MINUTES, time()) - 150;
+        $record1 = new Record(
+            $partitionKey,
+            $interval,
             $time,
-            Str::random(),
-            rand(123, 999)
+            'ref-1',
+            rand(1, 9999)
         );
-        $this->assertTrue($store->upsert($record));
+        $this->assertTrue($store->upsert($record1));
+
+        // Test upsert multiple record
+        $record2 = new Record(
+            $partitionKey,
+            $interval,
+            $time,
+            'ref-2',
+            rand(1, 9999)
+        );
+        $record3 = new Record(
+            $partitionKey,
+            $interval,
+            $time,
+            'ref-3',
+            rand(1, 9999)
+        );
+        $this->assertTrue($store->upsert([$record1, $record2, $record3]));
+
+        // Test get record 1
+        $this->assertNotNull($findRecord1 = $store->getRecord($partitionKey, $interval, $time, $record1->getReference()));
+        $this->assertEquals($record1->getValue() * 2, $findRecord1->getValue());
+
+        // Test get record 2 & 3
+        $this->assertNotNull($findRecord2 = $store->getRecord($partitionKey, $interval, $time, $record2->getReference()));
+        $this->assertEquals($record2->getValue(), $findRecord2->getValue());
+        $this->assertNotNull($findRecord3 = $store->getRecord($partitionKey, $interval, $time, $record3->getReference()));
+        $this->assertEquals($record3->getValue(), $findRecord3->getValue());
+
+        // Test sync interval records
+        $record1Previous = new Record(
+            $record1->getPartitionKey(),
+            $record1->getInterval(),
+            $record1->getTime() - TimeHelper::intervalToSeconds($record1->getInterval()),
+            'ref-1',
+            rand(1, 9999)
+        );
+        $this->assertTrue($store->upsert($record1Previous));
+        $this->assertCount(4, $syncedRecords = $store->syncIntervalRecords(Interval::ONE_MINUTE, Interval::FIVE_MINUTES));
+
+        // Test get records by time
+        $this->assertCount(3, $recordsByTime = $store->getRecordsByTime($partitionKey, Interval::FIVE_MINUTES, TimeHelper::startTime(Interval::FIVE_MINUTES, $time)));
+        foreach ($recordsByTime as $record) {
+            if ($record->getReference() === 'ref-1') {
+                $this->assertEquals(
+                    // Because record1 is inserted twice
+                    $record1->getValue() * 2 + $record1Previous->getValue(),
+                    $record->getValue()
+                );
+                continue;
+            }
+            if ($record->getReference() === 'ref-2') {
+                $this->assertEquals($record2->getValue(), $record->getValue());
+                continue;
+            }
+            if ($record->getReference() === 'ref-3') {
+                $this->assertEquals($record3->getValue(), $record->getValue());
+                continue;
+            }
+            throw new \Exception('Failed to test getRecordsByTime()');
+        }
+
+        // Test get records by reference
+        $this->assertCount(2, $recordsByReference = collect($store->getRecordsByReference($partitionKey, Interval::ONE_MINUTE, $record1->getReference(), time() - 86400, time())));
+        $this->assertCount(1, (clone $recordsByReference)->filter(function (Record $record) use ($record1) {
+            if ($record->getTime() === $record1->getTime()) {
+                $this->assertEquals($record1->getValue() * 2, $record->getValue());
+                return true;
+            }
+            return false;
+        }));
+        $this->assertCount(1, $recordsByReference->filter(function (Record $record) use ($record1Previous) {
+            if ($record->getTime() === $record1Previous->getTime()) {
+                $this->assertEquals($record1Previous->getValue(), $record->getValue());
+                return true;
+            }
+            return false;
+        }));
+
+        // Test get records and execute once
+        $this->assertCount(4, $store->getRecordsAndExecuteOnce(
+            $partitionKey,
+            Interval::ONE_MINUTE,
+            100,
+            function (array $records, \Closure $complete) {
+                $complete();
+            }
+        ));
+        $this->assertCount(0, $store->getRecordsAndExecuteOnce(
+            $partitionKey,
+            Interval::ONE_MINUTE,
+            100,
+            function () {
+                // Executed
+            }
+        ));
+
+        // Test get a single record
+        $this->assertNotNull($record = $store->getRecord($partitionKey, Interval::FIVE_MINUTES, $time, 'ref-2'));
+        $this->assertEquals($record2->getReference(), $record->getReference());
+        $this->assertEquals($record2->getValue(), $record->getValue());
+
+        // Test delete a single record
+        $this->assertTrue($store->delete($findRecord1->getStoreReference()));
+        $this->assertNull($store->getRecord($partitionKey, $interval, $time, $record1->getReference()));
+
+        // Test delete multi records
+        $this->assertTrue($store->delete([$findRecord2->getStoreReference(), $findRecord3->getStoreReference()]));
+        $this->assertNull($store->getRecord($partitionKey, $interval, $time, $record2->getReference()));
+        $this->assertNull($store->getRecord($partitionKey, $interval, $time, $record3->getReference()));
+
+        // Test prune
+        $pruneInterval = Interval::FIVE_MINUTES;
+
+        // Test prune all
+        $this->assertTrue($store->prune($pruneInterval, time()));
+
+        $pruneTime = time();
+        $pruneRefPrefix = 'prune-ref-';
+        $prunePartition = Str::random();
+        for ($i = 1; $i <= 10; $i++) {
+            $this->assertTrue($store->upsert(new Record(
+                $prunePartition,
+                $pruneInterval,
+                $pruneTime,
+                $pruneRefPrefix.$i,
+                rand(1, 9999)
+            )));
+        }
+        $this->assertCount(10, $store->getRecordsByTime($prunePartition, $pruneInterval, $pruneTime));
+
+        // Prune with partition
+        $this->assertTrue($store->prune($pruneInterval, $pruneTime, $prunePartition, 1));
+        $this->assertCount(9, $store->getRecordsByTime($prunePartition, $pruneInterval, $pruneTime));
+
+        // Prune with time
+        $this->assertTrue($store->prune($pruneInterval, $pruneTime, null, 2));
+        $this->assertCount(7, $store->getRecordsByTime($prunePartition, $pruneInterval, $pruneTime));
     }
 
     protected function makeRecorder(?string $driver = null): Recorder

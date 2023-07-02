@@ -15,6 +15,7 @@ class TimeHelper
     public static function intervalToSeconds(Interval $interval): int
     {
         return match ($interval) {
+            Interval::ONE_MINUTE => 60,
             Interval::FIVE_MINUTES => 300,
             Interval::TEN_MINUTES => 600,
             Interval::FIFTEEN_MINUTES => 900,
