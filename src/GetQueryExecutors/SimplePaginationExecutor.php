@@ -5,6 +5,7 @@ namespace KhanhArtisan\LaravelBackbone\GetQueryExecutors;
 use Illuminate\Database\Eloquent\Builder;
 use KhanhArtisan\LaravelBackbone\Eloquent\GetData;
 use KhanhArtisan\LaravelBackbone\Eloquent\GetQueryExecutorInterface;
+use Illuminate\Database\Eloquent\Collection;
 
 class SimplePaginationExecutor implements GetQueryExecutorInterface
 {
@@ -13,7 +14,7 @@ class SimplePaginationExecutor implements GetQueryExecutorInterface
      */
     public function execute(Builder $query): GetData
     {
-        // Todo: Add laravel pagination data
-        return new GetData($query->get());
+        $pagination = $query->paginate();
+        return new GetData(Collection::make($pagination->items()), $pagination->total());
     }
 }
