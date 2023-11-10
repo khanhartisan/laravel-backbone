@@ -19,7 +19,7 @@ class {{ class }} extends ModelListener implements ModelListenerInterface
     }
 
     /**
-     * Listen to events of the given model.
+     * Listen to the events of the given model.
      *
      * @return string
      */
