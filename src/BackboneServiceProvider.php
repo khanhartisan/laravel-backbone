@@ -4,6 +4,7 @@ namespace KhanhArtisan\LaravelBackbone;
 
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Support\ServiceProvider;
+use KhanhArtisan\LaravelBackbone\CascadeDeleteManager\CascadeDeleteManagerProvider;
 use KhanhArtisan\LaravelBackbone\Console\Commands\ModelListener\MakeCommand;
 use KhanhArtisan\LaravelBackbone\Console\Commands\ModelListener\ShowCommand;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\Recorder;
@@ -25,6 +26,9 @@ class BackboneServiceProvider extends ServiceProvider
 
         // Register model listener manager
         $this->app->singleton(ModelListenerManager::class, ModelListenerManager::class);
+
+        // Register CascadeDeleteManagerProvider
+        $this->app->register(CascadeDeleteManagerProvider::class);
     }
 
     /**
