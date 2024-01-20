@@ -16,61 +16,23 @@ use KhanhArtisan\LaravelBackbone\CascadeDeleteManager\CascadeDeleteDetails;
 use KhanhArtisan\LaravelBackbone\CascadeDeleteManager\CascadeDeleteManager;
 use KhanhArtisan\LaravelBackbone\ModelListener\ModelListenerManager;
 
-class ExecuteCascadeDeletes implements ShouldQueue
+class CascadeDelete extends Cascade implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
-
-    public $deleteWhenMissingModels = true;
-
     /**
-     * Create a new job instance.
+     * Build the model query
      *
-     * @param int $recordsLimit The maximum number of records to be deleted in one job
-     * @param int $chunk
+     * @param Builder $query
+     * @return void
      */
-    public function __construct(protected int $recordsLimit = 10000, protected int $chunk = 100)
+    protected function buildModelQuery(Builder $query): void
     {
-    }
+        $instance = $query->getModel();
 
-    /**
-     * Execute the job.
-     */
-    public function handle(): void
-    {
-        /** @var CascadeDeleteManager $cascadeDeleteManager */
-        $cascadeDeleteManager = app()->make(CascadeDeleteManager::class);
-
-        // Loop through all model classes
-        foreach ($cascadeDeleteManager->getCascadeDeletableModels() as $modelClass) {
-
-            // Skip if the model class doesn't implement CascadeDeletable interface
-            if (!in_array(CascadeDeletable::class, class_implements($modelClass))) {
-                continue;
-            }
-
-            // Get the soft deleted models and relations_deleted = 0
-            /** @var Model $modelClass */
-            $instance = new $modelClass;
-
-            // Skip if the model doesn't support soft deleting
-            if (!method_exists($instance, 'getDeletedAtColumn')) {
-                continue;
-            }
-
-            // Get the soft deleted models and relations_deleted = 0
-            $models = $modelClass::query()
-                ->where($instance->qualifyColumn($instance->getRelationsDeletedColumn()), false)
+        $query->where($instance->qualifyColumn($instance->getRelationsDeletedColumn()), false)
                 ->whereNotNull($instance->getDeletedAtColumn())
                 ->orderBy($instance->getDeletedAtColumn())
                 ->limit($this->chunk)
-                ->withTrashed()
-                ->get();
-
-            // Loop through all models
-            foreach ($models as $model) {
-                $this->handleCascadeDeletableModel($model);
-            }
-        }
+                ->withTrashed();
     }
 
     /**

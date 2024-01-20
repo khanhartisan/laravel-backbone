@@ -6,7 +6,7 @@ use App\Models\Car;
 use App\Models\Manufacturer;
 use App\Models\Review;
 use KhanhArtisan\LaravelBackbone\CascadeDeleteManager\CascadeDeleteManager;
-use KhanhArtisan\LaravelBackbone\CascadeDeleteManager\Jobs\ExecuteCascadeDeletes;
+use KhanhArtisan\LaravelBackbone\CascadeDeleteManager\Jobs\CascadeDelete;
 
 class CascadeDeleteTest extends TestCase
 {
@@ -25,7 +25,7 @@ class CascadeDeleteTest extends TestCase
         $manufacturer->delete();
 
         // First time will delete the car
-        ExecuteCascadeDeletes::dispatch();
+        CascadeDelete::dispatch();
 
         $manufacturer->refresh();
         $this->assertSoftDeleted($manufacturer);
@@ -38,7 +38,7 @@ class CascadeDeleteTest extends TestCase
         $this->assertModelExists($review);
 
         // Second time will delete the review
-        ExecuteCascadeDeletes::dispatch();
+        CascadeDelete::dispatch();
 
         $manufacturer->refresh();
         $this->assertSoftDeleted($manufacturer);
