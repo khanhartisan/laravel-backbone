@@ -12,6 +12,16 @@ trait CascadeDeletes
     use SoftDeletes;
 
     /**
+     * Boot the cascade delete trait for a model.
+     *
+     * @return void
+     */
+    public static function bootCascadeDeletes(): void
+    {
+        // TODO: Register event listeners to handle cascade restore
+    }
+
+    /**
      * Initialize the model for cascade deletes.
      *
      * @return void
