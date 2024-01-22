@@ -37,7 +37,7 @@ class CascadeDelete extends Cascade implements ShouldQueue
     }
 
     /**
-     * Handle the cascade-deletable model
+     * Handle the cascade model
      *
      * @param ShouldCascade $model
      * @return void
