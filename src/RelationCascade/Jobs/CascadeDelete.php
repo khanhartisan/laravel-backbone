@@ -45,7 +45,7 @@ class CascadeDelete extends Cascade implements ShouldQueue
     protected function handleCascadeDeletableModel(ShouldCascade $model): void
     {
         // Get the cascade delete details
-        $cascadeDeleteDetails = $model->getCascadeDeleteDetails();
+        $cascadeDeleteDetails = $model->getCascadeDetails();
         $cascadeDeleteDetails = is_array($cascadeDeleteDetails) ? $cascadeDeleteDetails : [$cascadeDeleteDetails];
 
         // Loop through all cascade delete details

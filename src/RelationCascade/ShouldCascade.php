@@ -20,7 +20,7 @@ interface ShouldCascade
      *
      * @return CascadeDetails|array<CascadeDetails>
      */
-    public function getCascadeDeleteDetails(): CascadeDetails|array;
+    public function getCascadeDetails(): CascadeDetails|array;
 
     /**
      * Get the column name of the "cascade_status" column.

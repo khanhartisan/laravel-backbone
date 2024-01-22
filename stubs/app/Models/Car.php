@@ -17,7 +17,7 @@ class Car extends Model implements ShouldCascade
 
     protected $fillable = ['name'];
 
-    public function getCascadeDeleteDetails(): CascadeDetails|array
+    public function getCascadeDetails(): CascadeDetails|array
     {
         return [
             (new CascadeDetails($this->reviews()))
