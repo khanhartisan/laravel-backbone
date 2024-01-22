@@ -16,5 +16,11 @@ class RelationCascadeProvider extends ServiceProvider
             $this->datetime('cascade_updated_at')->nullable();
             $this->index(['cascade_status', 'cascade_updated_at']);
         });
+
+        // Auto register /app/Models by default
+        $this->app->make(RelationCascadeManager::class)->registerModelsFrom(
+            $this->app->getNamespace() . 'Models',
+            app_path('Models')
+        );
     }
 }

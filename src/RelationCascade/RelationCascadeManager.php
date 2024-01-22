@@ -2,6 +2,9 @@
 
 namespace KhanhArtisan\LaravelBackbone\RelationCascade;
 
+use Illuminate\Database\Eloquent\Model;
+use KhanhArtisan\LaravelBackbone\Support\Finder;
+
 class RelationCascadeManager
 {
     protected array $cascadeDeletableModels = [];
@@ -29,9 +32,12 @@ class RelationCascadeManager
             return false;
         }
 
-        if (!in_array($model, $this->cascadeDeletableModels)) {
-            $this->cascadeDeletableModels[] = $model;
+        // Unset if already registered
+        if (in_array($model, $this->cascadeDeletableModels)) {
+            unset($this->cascadeDeletableModels[array_search($model, $this->cascadeDeletableModels)]);
         }
+
+        $this->cascadeDeletableModels[] = $model;
 
         return true;
     }
@@ -47,6 +53,28 @@ class RelationCascadeManager
         foreach ($models as $model) {
             $this->registerModel($model);
         }
+    }
+
+    /**
+     * Register all models that implement ShouldCascade interface from the given path
+     *
+     * @param string $namespace
+     * @param string $path
+     * @return void
+     */
+    public function registerModelsFrom(string $namespace, string $path): void
+    {
+        $listenerClassNames = (new Finder())->in($path)->getClasses($namespace);
+        $listenerClassNames = collect($listenerClassNames)
+            ->filter(
+                fn (string $class) =>
+                    in_array(ShouldCascade::class, class_implements($class))
+                    and is_subclass_of($class, Model::class)
+            )
+            ->values()
+            ->toArray();
+
+        $this->registerModels($listenerClassNames);
     }
 
     /**
