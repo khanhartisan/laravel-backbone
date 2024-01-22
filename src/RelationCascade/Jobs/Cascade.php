@@ -62,7 +62,14 @@ abstract class Cascade implements ShouldQueue
 
             // Loop through all models
             foreach ($models as $model) {
+
+                // Return if the limit is reached
+                if ($this->recordsLimit <= 0) {
+                    return;
+                }
+
                 $this->handleCascadeDeletableModel($model);
+                $this->recordsLimit--;
             }
         }
     }

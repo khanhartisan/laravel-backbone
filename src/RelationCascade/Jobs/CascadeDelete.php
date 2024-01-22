@@ -52,6 +52,11 @@ class CascadeDelete extends Cascade implements ShouldQueue
         $allRelationsAreDeleted = true;
         foreach ($cascadeDeleteDetails as $details) {
 
+            // Return if the limit is reached
+            if ($this->recordsLimit <= 0) {
+                return;
+            }
+
             // Skip if $details isn't an instance of CascadeDetails
             if (!$details instanceof CascadeDetails) {
                 continue;
@@ -68,12 +73,8 @@ class CascadeDelete extends Cascade implements ShouldQueue
                 $deletedCount = $this->deleteRelations($details, $limit);
             }
 
+            // Update records limit
             $this->recordsLimit -= $deletedCount;
-
-            // Return if the limit is reached
-            if ($this->recordsLimit <= 0) {
-                return;
-            }
 
             // Detect if maybe not all relations are deleted
             if ($deletedCount === $limit) {
@@ -103,6 +104,14 @@ class CascadeDelete extends Cascade implements ShouldQueue
 
         // If all relations are deleted
         if ($allRelationsAreDeleted) {
+
+            // If auto force delete is enabled -> force delete and finish
+            if ($model->autoForceDeleteWhenAllRelationsAreDeleted()
+                and $model->autoForceDeletePerItem()
+            ) {
+                $model->forceDelete();
+                return;
+            }
 
             // Update the cascade_status
             $model->setAttribute($model->getCascadeStatusColumn(), CascadeStatus::DELETED);
