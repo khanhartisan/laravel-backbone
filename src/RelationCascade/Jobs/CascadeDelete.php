@@ -11,6 +11,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
+use KhanhArtisan\LaravelBackbone\RelationCascade\CascadeStatus;
 use KhanhArtisan\LaravelBackbone\RelationCascade\ShouldCascade;
 use KhanhArtisan\LaravelBackbone\RelationCascade\CascadeDetails;
 use KhanhArtisan\LaravelBackbone\RelationCascade\RelationCascadeManager;
@@ -26,11 +27,11 @@ class CascadeDelete extends Cascade implements ShouldQueue
      */
     protected function buildModelQuery(Builder $query): void
     {
+        /** @var ShouldCascade $instance */
         $instance = $query->getModel();
 
-        $query->where($instance->qualifyColumn($instance->getCascadeStatusColumn()), false)
-                ->whereNotNull($instance->getDeletedAtColumn())
-                ->orderBy($instance->getDeletedAtColumn())
+        $query->where($instance->qualifyColumn($instance->getCascadeStatusColumn()), CascadeStatus::DELETING)
+                ->orderBy($instance->getCascadeUpdatedAtColumn())
                 ->limit($this->chunk)
                 ->withTrashed();
     }
@@ -74,8 +75,28 @@ class CascadeDelete extends Cascade implements ShouldQueue
                 return;
             }
 
-            // Detect if not all relations are deleted
-            if ($deletedCount >= $limit) {
+            // Detect if maybe not all relations are deleted
+            if ($deletedCount === $limit) {
+                $allRelationsAreDeleted = false;
+                continue;
+            }
+
+            // Detect if at least 1 relation resource is not deleted
+            $relationModel = $details->getRelation()->getModel();
+            if ($relationModel instanceof ShouldCascade
+                and $details
+                    ->getRelation()
+                    ->whereIn(
+                        $relationModel->qualifyColumn($relationModel->getCascadeStatusColumn()),
+                        collect(CascadeStatus::cases())
+                            ->filter(fn (CascadeStatus $status) => $status !== CascadeStatus::DELETED)
+                            ->all()
+                    )
+                    ->withTrashed()
+                    ->exists()
+            ) {
+                $allRelationsAreDeleted = false;
+            } elseif ($details->getRelation()->first()) {
                 $allRelationsAreDeleted = false;
             }
         }
@@ -83,16 +104,12 @@ class CascadeDelete extends Cascade implements ShouldQueue
         // If all relations are deleted
         if ($allRelationsAreDeleted) {
 
-            // Force delete and finish
-            if ($details->shouldForceDelete()) {
-                $model->forceDelete();
-                return;
-            }
-
-            // Update the cascade_status to true
-            $model->setAttribute($model->getCascadeStatusColumn(), true);
-            $model->save();
+            // Update the cascade_status
+            $model->setAttribute($model->getCascadeStatusColumn(), CascadeStatus::DELETED);
         }
+
+        $model->setAttribute($model->getCascadeUpdatedAtColumn(), now());
+        $model->save();
     }
 
     /**

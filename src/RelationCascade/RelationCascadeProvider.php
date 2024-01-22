@@ -11,9 +11,10 @@ class RelationCascadeProvider extends ServiceProvider
     {
         $this->app->singleton(RelationCascadeManager::class, RelationCascadeManager::class);
 
-        Blueprint::macro('cascadeDeletes', function () {
-            $this->boolean('cascade_status')->default(false);
-            $this->index(['cascade_status', 'deleted_at']);
+        Blueprint::macro('cascades', function () {
+            $this->tinyInteger('cascade_status')->unsigned()->default(CascadeStatus::IDLE->value);
+            $this->datetime('cascade_updated_at')->nullable();
+            $this->index(['cascade_status', 'cascade_updated_at']);
         });
     }
 }

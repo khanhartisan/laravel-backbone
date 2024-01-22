@@ -2,12 +2,15 @@
 
 namespace KhanhArtisan\LaravelBackbone\Tests;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use KhanhArtisan\LaravelBackbone\Testing\JsonApiTest;
 use KhanhArtisan\LaravelBackbone\Testing\JsonCrudTestData;
 
 class JsonControllerTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_basic_crud()
     {
         $jsonApiTest = new JsonApiTest($this);

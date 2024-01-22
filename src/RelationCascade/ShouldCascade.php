@@ -31,6 +31,14 @@ interface ShouldCascade
     public function getCascadeStatusColumn(): string;
 
     /**
+     * Get the column name of the "cascade_updated_at" column.
+     * This column is a timestamp to indicate the last activity of cascading actions.
+     *
+     * @return string
+     */
+    public function getCascadeUpdatedAtColumn(): string;
+
+    /**
      * Determine if the model resource should be force deleted automatically when all relations are deleted.
      *
      * @return bool
