@@ -55,7 +55,7 @@ class ModelListenerManager
         $listenerClassNames = (new Finder())->in($path)->getClasses($namespace);
         $listenerClassNames = collect($listenerClassNames)
             ->filter(
-                fn (string $class) => $reflectClass = new \ReflectionClass($class) and $reflectClass->isSubclassOf(ModelListenerInterface::class)
+                fn (string $class) => in_array(ModelListenerInterface::class, class_implements($class))
             )
             ->values()
             ->toArray();
