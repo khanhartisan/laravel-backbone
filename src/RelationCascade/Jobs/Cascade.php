@@ -1,6 +1,6 @@
 <?php
 
-namespace KhanhArtisan\LaravelBackbone\CascadeDeleteManager\Jobs;
+namespace KhanhArtisan\LaravelBackbone\RelationCascade\Jobs;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Database\Eloquent\Builder;
@@ -11,9 +11,9 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
-use KhanhArtisan\LaravelBackbone\CascadeDeleteManager\CascadeDeletable;
-use KhanhArtisan\LaravelBackbone\CascadeDeleteManager\CascadeDeleteDetails;
-use KhanhArtisan\LaravelBackbone\CascadeDeleteManager\CascadeDeleteManager;
+use KhanhArtisan\LaravelBackbone\RelationCascade\ShouldCascade;
+use KhanhArtisan\LaravelBackbone\RelationCascade\CascadeDetails;
+use KhanhArtisan\LaravelBackbone\RelationCascade\RelationCascadeManager;
 use KhanhArtisan\LaravelBackbone\ModelListener\ModelListenerManager;
 
 abstract class Cascade implements ShouldQueue
@@ -35,18 +35,18 @@ abstract class Cascade implements ShouldQueue
      */
     public function handle(): void
     {
-        /** @var CascadeDeleteManager $cascadeDeleteManager */
-        $cascadeDeleteManager = app()->make(CascadeDeleteManager::class);
+        /** @var RelationCascadeManager $cascadeDeleteManager */
+        $cascadeDeleteManager = app()->make(RelationCascadeManager::class);
 
         // Loop through all model classes
         foreach ($cascadeDeleteManager->getCascadeDeletableModels() as $modelClass) {
 
-            // Skip if the model class doesn't implement CascadeDeletable interface
-            if (!in_array(CascadeDeletable::class, class_implements($modelClass))) {
+            // Skip if the model class doesn't implement ShouldCascade interface
+            if (!in_array(ShouldCascade::class, class_implements($modelClass))) {
                 continue;
             }
 
-            // Get the soft deleted models and relations_deleted = 0
+            // Get the soft deleted models and cascade_status = 0
             /** @var Model $modelClass */
             $instance = new $modelClass;
 
@@ -55,7 +55,7 @@ abstract class Cascade implements ShouldQueue
                 continue;
             }
 
-            // Get the soft deleted models and relations_deleted = 0
+            // Get the soft deleted models and cascade_status = 0
             $query = $modelClass::query();
             $this->buildModelQuery($query);
             $models = $query->get();
@@ -78,8 +78,8 @@ abstract class Cascade implements ShouldQueue
     /**
      * Handle the cascade-deletable model
      *
-     * @param CascadeDeletable $model
+     * @param ShouldCascade $model
      * @return void
      */
-    abstract protected function handleCascadeDeletableModel(CascadeDeletable $model): void;
+    abstract protected function handleCascadeDeletableModel(ShouldCascade $model): void;
 }

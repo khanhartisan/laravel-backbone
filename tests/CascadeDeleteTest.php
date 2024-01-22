@@ -5,8 +5,8 @@ namespace KhanhArtisan\LaravelBackbone\Tests;
 use App\Models\Car;
 use App\Models\Manufacturer;
 use App\Models\Review;
-use KhanhArtisan\LaravelBackbone\CascadeDeleteManager\CascadeDeleteManager;
-use KhanhArtisan\LaravelBackbone\CascadeDeleteManager\Jobs\CascadeDelete;
+use KhanhArtisan\LaravelBackbone\RelationCascade\RelationCascadeManager;
+use KhanhArtisan\LaravelBackbone\RelationCascade\Jobs\CascadeDelete;
 
 class CascadeDeleteTest extends TestCase
 {
@@ -17,10 +17,10 @@ class CascadeDeleteTest extends TestCase
         $review = Review::factory()->create();
 
         $car = $review->car;
-        $this->assertFalse($car->relations_deleted);
+        $this->assertFalse($car->cascade_status);
 
         $manufacturer = $car->manufacturer;
-        $this->assertFalse($manufacturer->relations_deleted);
+        $this->assertFalse($manufacturer->cascade_status);
 
         $manufacturer->delete();
 
@@ -29,11 +29,11 @@ class CascadeDeleteTest extends TestCase
 
         $manufacturer->refresh();
         $this->assertSoftDeleted($manufacturer);
-        $this->assertTrue($manufacturer->relations_deleted);
+        $this->assertTrue($manufacturer->cascade_status);
 
         $car->refresh();
         $this->assertSoftDeleted($car);
-        $this->assertFalse($car->relations_deleted);
+        $this->assertFalse($car->cascade_status);
 
         $this->assertModelExists($review);
 
@@ -42,11 +42,11 @@ class CascadeDeleteTest extends TestCase
 
         $manufacturer->refresh();
         $this->assertSoftDeleted($manufacturer);
-        $this->assertTrue($manufacturer->relations_deleted);
+        $this->assertTrue($manufacturer->cascade_status);
 
         $car->refresh();
         $this->assertSoftDeleted($car);
-        $this->assertTrue($car->relations_deleted);
+        $this->assertTrue($car->cascade_status);
 
         $this->assertModelMissing($review);
     }
@@ -55,8 +55,8 @@ class CascadeDeleteTest extends TestCase
 
     protected function _register()
     {
-        /** @var CascadeDeleteManager $cascadeDeleteManager */
-        $cascadeDeleteManager = app()->make(CascadeDeleteManager::class);
+        /** @var RelationCascadeManager $cascadeDeleteManager */
+        $cascadeDeleteManager = app()->make(RelationCascadeManager::class);
         $cascadeDeleteManager->registerModels([
             Car::class,
             Manufacturer::class,

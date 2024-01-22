@@ -6,21 +6,21 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use KhanhArtisan\LaravelBackbone\CascadeDeleteManager\CascadeDeletable;
-use KhanhArtisan\LaravelBackbone\CascadeDeleteManager\CascadeDeleteDetails;
-use KhanhArtisan\LaravelBackbone\CascadeDeleteManager\CascadeDeletes;
+use KhanhArtisan\LaravelBackbone\RelationCascade\ShouldCascade;
+use KhanhArtisan\LaravelBackbone\RelationCascade\CascadeDetails;
+use KhanhArtisan\LaravelBackbone\RelationCascade\Cascades;
 
-class Car extends Model implements CascadeDeletable
+class Car extends Model implements ShouldCascade
 {
     use HasFactory;
-    use CascadeDeletes;
+    use Cascades;
 
     protected $fillable = ['name'];
 
-    public function getCascadeDeleteDetails(): CascadeDeleteDetails|array
+    public function getCascadeDeleteDetails(): CascadeDetails|array
     {
         return [
-            (new CascadeDeleteDetails($this->reviews()))
+            (new CascadeDetails($this->reviews()))
                 ->setShouldDeletePerItem(false)
         ];
     }

@@ -1,6 +1,6 @@
 <?php
 
-namespace KhanhArtisan\LaravelBackbone\CascadeDeleteManager\Jobs;
+namespace KhanhArtisan\LaravelBackbone\RelationCascade\Jobs;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Database\Eloquent\Builder;
@@ -11,9 +11,9 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
-use KhanhArtisan\LaravelBackbone\CascadeDeleteManager\CascadeDeletable;
-use KhanhArtisan\LaravelBackbone\CascadeDeleteManager\CascadeDeleteDetails;
-use KhanhArtisan\LaravelBackbone\CascadeDeleteManager\CascadeDeleteManager;
+use KhanhArtisan\LaravelBackbone\RelationCascade\ShouldCascade;
+use KhanhArtisan\LaravelBackbone\RelationCascade\CascadeDetails;
+use KhanhArtisan\LaravelBackbone\RelationCascade\RelationCascadeManager;
 use KhanhArtisan\LaravelBackbone\ModelListener\ModelListenerManager;
 
 class CascadeRestore extends Cascade implements ShouldQueue
@@ -23,7 +23,7 @@ class CascadeRestore extends Cascade implements ShouldQueue
         // TODO: Implement buildModelQuery() method.
     }
 
-    protected function handleCascadeDeletableModel(CascadeDeletable $model): void
+    protected function handleCascadeDeletableModel(ShouldCascade $model): void
     {
         // TODO: Implement handleCascadeDeletableModel() method.
     }

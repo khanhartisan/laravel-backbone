@@ -1,10 +1,10 @@
 <?php
 
-namespace KhanhArtisan\LaravelBackbone\CascadeDeleteManager;
+namespace KhanhArtisan\LaravelBackbone\RelationCascade;
 
 use Illuminate\Contracts\Database\Eloquent\Builder;
 
-class CascadeDeleteDetails
+class CascadeDetails
 {
     /**
      * Determine whether the relations should be restored when the model is restored.

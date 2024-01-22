@@ -1,8 +1,8 @@
 <?php
 
-namespace KhanhArtisan\LaravelBackbone\CascadeDeleteManager;
+namespace KhanhArtisan\LaravelBackbone\RelationCascade;
 
-class CascadeDeleteManager
+class RelationCascadeManager
 {
     protected array $cascadeDeletableModels = [];
 
@@ -24,8 +24,8 @@ class CascadeDeleteManager
      */
     public function registerModel(string $model): bool
     {
-        // Check if model implements CascadeDeletable
-        if (!in_array(CascadeDeletable::class, class_implements($model))) {
+        // Check if model implements ShouldCascade
+        if (!in_array(ShouldCascade::class, class_implements($model))) {
             return false;
         }
 

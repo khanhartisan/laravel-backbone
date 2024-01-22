@@ -1,6 +1,6 @@
 <?php
 
-namespace KhanhArtisan\LaravelBackbone\CascadeDeleteManager\Jobs;
+namespace KhanhArtisan\LaravelBackbone\RelationCascade\Jobs;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Database\Eloquent\Builder;
@@ -11,9 +11,9 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
-use KhanhArtisan\LaravelBackbone\CascadeDeleteManager\CascadeDeletable;
-use KhanhArtisan\LaravelBackbone\CascadeDeleteManager\CascadeDeleteDetails;
-use KhanhArtisan\LaravelBackbone\CascadeDeleteManager\CascadeDeleteManager;
+use KhanhArtisan\LaravelBackbone\RelationCascade\ShouldCascade;
+use KhanhArtisan\LaravelBackbone\RelationCascade\CascadeDetails;
+use KhanhArtisan\LaravelBackbone\RelationCascade\RelationCascadeManager;
 use KhanhArtisan\LaravelBackbone\ModelListener\ModelListenerManager;
 
 class CascadeDelete extends Cascade implements ShouldQueue
@@ -28,7 +28,7 @@ class CascadeDelete extends Cascade implements ShouldQueue
     {
         $instance = $query->getModel();
 
-        $query->where($instance->qualifyColumn($instance->getRelationsDeletedColumn()), false)
+        $query->where($instance->qualifyColumn($instance->getCascadeStatusColumn()), false)
                 ->whereNotNull($instance->getDeletedAtColumn())
                 ->orderBy($instance->getDeletedAtColumn())
                 ->limit($this->chunk)
@@ -38,10 +38,10 @@ class CascadeDelete extends Cascade implements ShouldQueue
     /**
      * Handle the cascade-deletable model
      *
-     * @param CascadeDeletable $model
+     * @param ShouldCascade $model
      * @return void
      */
-    protected function handleCascadeDeletableModel(CascadeDeletable $model): void
+    protected function handleCascadeDeletableModel(ShouldCascade $model): void
     {
         // Get the cascade delete details
         $cascadeDeleteDetails = $model->getCascadeDeleteDetails();
@@ -51,8 +51,8 @@ class CascadeDelete extends Cascade implements ShouldQueue
         $allRelationsAreDeleted = true;
         foreach ($cascadeDeleteDetails as $details) {
 
-            // Skip if $details isn't an instance of CascadeDeleteDetails
-            if (!$details instanceof CascadeDeleteDetails) {
+            // Skip if $details isn't an instance of CascadeDetails
+            if (!$details instanceof CascadeDetails) {
                 continue;
             }
 
@@ -89,8 +89,8 @@ class CascadeDelete extends Cascade implements ShouldQueue
                 return;
             }
 
-            // Update the relations_deleted to true
-            $model->setAttribute($model->getRelationsDeletedColumn(), true);
+            // Update the cascade_status to true
+            $model->setAttribute($model->getCascadeStatusColumn(), true);
             $model->save();
         }
     }
@@ -98,11 +98,11 @@ class CascadeDelete extends Cascade implements ShouldQueue
     /**
      * Delete the relations
      *
-     * @param CascadeDeleteDetails $cascadeDeleteDetails
+     * @param CascadeDetails $cascadeDeleteDetails
      * @param int $limit
      * @return int
      */
-    protected function deleteRelations(CascadeDeleteDetails $cascadeDeleteDetails, int $limit): int
+    protected function deleteRelations(CascadeDetails $cascadeDeleteDetails, int $limit): int
     {
         // Batch delete
         if (!$cascadeDeleteDetails->shouldDeletePerItem()) {

@@ -1,13 +1,13 @@
 <?php
 
-namespace KhanhArtisan\LaravelBackbone\CascadeDeleteManager;
+namespace KhanhArtisan\LaravelBackbone\RelationCascade;
 
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * This trait helps to implement CascadeDeletable interface.
+ * This trait helps to implement ShouldCascade interface.
  */
-trait CascadeDeletes
+trait Cascades
 {
     use SoftDeletes;
 
@@ -16,7 +16,7 @@ trait CascadeDeletes
      *
      * @return void
      */
-    public static function bootCascadeDeletes(): void
+    public static function bootCascades(): void
     {
         // TODO: Register event listeners to handle cascade restore
     }
@@ -26,16 +26,16 @@ trait CascadeDeletes
      *
      * @return void
      */
-    public function initializeCascadeDeletes(): void
+    public function initializeCascades(): void
     {
-        if (!isset($this->casts[$this->getRelationsDeletedColumn()])) {
-            $this->casts[$this->getRelationsDeletedColumn()] = 'boolean';
+        if (!isset($this->casts[$this->getCascadeStatusColumn()])) {
+            $this->casts[$this->getCascadeStatusColumn()] = 'boolean';
         }
     }
 
-    public function getRelationsDeletedColumn(): string
+    public function getCascadeStatusColumn(): string
     {
-        return 'relations_deleted';
+        return 'cascade_status';
     }
 
     public static function autoForceDeleteWhenAllRelationsAreDeleted(): bool
