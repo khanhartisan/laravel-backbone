@@ -2,6 +2,7 @@
 
 namespace KhanhArtisan\LaravelBackbone\RelationCascade\Jobs;
 
+use App\Models\Manufacturer;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -89,13 +90,26 @@ class CascadeDelete extends Cascade implements ShouldQueue
      */
     protected function handleRelations(CascadeDetails $cascadeDetails, int $limit): int
     {
+        $deleteAction = $cascadeDetails->shouldForceDelete() ? 'forceDelete' : 'delete';
+
         // Batch delete
         if (!$cascadeDetails->shouldDeletePerItem()) {
-            return $cascadeDetails->getRelation()->take($limit)->delete();
+            $relationModel = $cascadeDetails->getRelation()->getModel();
+
+            // Relation model implements ShouldCascade and action isn't force -> use soft delete
+            if ($relationModel instanceof ShouldCascade and !$cascadeDetails->shouldForceDelete()) {
+                return $cascadeDetails->getRelation()->take($limit)->update([
+                    $relationModel->getDeletedAtColumn() => now(),
+                    $relationModel->getCascadeStatusColumn() => CascadeStatus::DELETING,
+                ]);
+            }
+
+            // If the relation model supports soft delete but doesn't implement ShouldCascade
+            // or the delete action is force delete -> use force delete
+            return $cascadeDetails->getRelation()->take($limit)->{$deleteAction}();
         }
 
         // Per item delete
-        $deleteAction = $cascadeDetails->shouldForceDelete() ? 'forceDelete' : 'delete';
         $deleted = 0;
         $cascadeDetails
             ->getRelation()

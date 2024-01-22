@@ -2,6 +2,7 @@
 
 namespace KhanhArtisan\LaravelBackbone\RelationCascade\Jobs;
 
+use App\Models\Manufacturer;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -43,7 +44,7 @@ abstract class Cascade implements ShouldQueue
         foreach ($cascadeDeleteManager->getCascadeDeletableModels() as $modelClass) {
 
             // Get the soft deleted models and cascade_status = 0
-            /** @var Model $modelClass */
+            /** @var Model $instance */
             $instance = new $modelClass;
 
             // Skip if the model doesn't support soft deleting
@@ -66,9 +67,14 @@ abstract class Cascade implements ShouldQueue
 
                 if ($this->handleCascadeModel($model)) {
                     $this->onAllRelationsFinished($model);
+                }
+
+                if ($model->exists) {
                     $model->setAttribute($model->getCascadeUpdatedAtColumn(), now());
                     $model->save();
                 }
+
+                $this->recordsLimit--;
             }
         }
     }
@@ -86,6 +92,7 @@ abstract class Cascade implements ShouldQueue
         $cascadeDeleteDetails = is_array($cascadeDeleteDetails) ? $cascadeDeleteDetails : [$cascadeDeleteDetails];
 
         // Loop through all cascade delete details
+        $allFinished = true;
         foreach ($cascadeDeleteDetails as $details) {
 
             // Skip if it should not delete
@@ -94,11 +101,11 @@ abstract class Cascade implements ShouldQueue
             }
 
             if (!$this->handleCascadeDetails($details)) {
-                return false;
+                $allFinished = false;
             }
         }
 
-        return true;
+        return $allFinished;
     }
 
     /**

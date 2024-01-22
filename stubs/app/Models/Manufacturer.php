@@ -19,12 +19,21 @@ class Manufacturer extends Model implements ShouldCascade
     public function getCascadeDetails(): CascadeDetails|array
     {
         return [
-            new CascadeDetails($this->cars())
+            (new CascadeDetails($this->cars()))
+                ->setShouldDelete(!str_contains($this->name, 'SHOULD-NOT-DELETE-CARS'))
+                ->setShouldRestore(!str_contains($this->name, 'SHOULD-NOT-RESTORE-CARS'))
+                ->setShouldForceDelete(str_contains($this->name, 'SHOULD-FORCE-DELETE-CARS'))
+                ->setShouldDeletePerItem(!str_contains($this->name, 'SHOULD-DELETE-CARS-BY-BATCH'))
         ];
     }
 
     public function cars(): HasMany
     {
         return $this->hasMany(Car::class);
+    }
+
+    public function autoForceDeleteWhenAllRelationsAreDeleted(): bool
+    {
+        return str_contains($this->name, 'SHOULD-AUTO-FORCE-DELETE');
     }
 }

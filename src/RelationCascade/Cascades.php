@@ -45,6 +45,11 @@ trait Cascades
         static::restored(function (self $model) use ($updateModel) {
             $updateModel($model, CascadeStatus::RESTORING);
         });
+
+        // Set default cascade status on creating
+        static::creating(function (self $model) {
+            $model->{$model->getCascadeStatusColumn()} = CascadeStatus::IDLE;
+        });
     }
 
     /**
