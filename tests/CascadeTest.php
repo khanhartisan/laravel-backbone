@@ -9,7 +9,7 @@ use KhanhArtisan\LaravelBackbone\RelationCascade\CascadeStatus;
 use KhanhArtisan\LaravelBackbone\RelationCascade\RelationCascadeManager;
 use KhanhArtisan\LaravelBackbone\RelationCascade\Jobs\CascadeDelete;
 
-class CascadeDeleteTest extends TestCase
+class CascadeTest extends TestCase
 {
     public function test_cascade_delete_simple()
     {
