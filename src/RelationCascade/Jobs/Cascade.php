@@ -41,11 +41,6 @@ abstract class Cascade implements ShouldQueue
         // Loop through all model classes
         foreach ($cascadeDeleteManager->getCascadeDeletableModels() as $modelClass) {
 
-            // Skip if the model class doesn't implement ShouldCascade interface
-            if (!in_array(ShouldCascade::class, class_implements($modelClass))) {
-                continue;
-            }
-
             // Get the soft deleted models and cascade_status = 0
             /** @var Model $modelClass */
             $instance = new $modelClass;

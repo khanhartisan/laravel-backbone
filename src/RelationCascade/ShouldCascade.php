@@ -43,12 +43,5 @@ interface ShouldCascade
      *
      * @return bool
      */
-    public static function autoForceDeleteWhenAllRelationsAreDeleted(): bool;
-
-    /**
-     * Determine if the model resource should be force deleted per item or by batch.
-     *
-     * @return bool true: force delete per item, false: force delete by batch
-     */
-    public static function autoForceDeletePerItem(): bool;
+    public function autoForceDeleteWhenAllRelationsAreDeleted(): bool;
 }

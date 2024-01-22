@@ -64,13 +64,8 @@ trait Cascades
         return 'cascade_updated_at';
     }
 
-    public static function autoForceDeleteWhenAllRelationsAreDeleted(): bool
+    public function autoForceDeleteWhenAllRelationsAreDeleted(): bool
     {
         return false;
-    }
-
-    public static function autoForceDeletePerItem(): bool
-    {
-        return true;
     }
 }

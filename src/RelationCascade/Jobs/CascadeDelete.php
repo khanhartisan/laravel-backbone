@@ -106,9 +106,7 @@ class CascadeDelete extends Cascade implements ShouldQueue
         if ($allRelationsAreDeleted) {
 
             // If auto force delete is enabled -> force delete and finish
-            if ($model->autoForceDeleteWhenAllRelationsAreDeleted()
-                and $model->autoForceDeletePerItem()
-            ) {
+            if ($model->autoForceDeleteWhenAllRelationsAreDeleted()) {
                 $model->forceDelete();
                 return;
             }
