@@ -43,8 +43,9 @@ class CascadeDelete extends Cascade implements ShouldQueue
     {
         // Detect if at least 1 relation resource is not deleted
         $relationModel = $cascadeDetails->getRelation()->getModel();
-        if ($relationModel instanceof ShouldCascade
-            and $cascadeDetails
+        if ($relationModel instanceof ShouldCascade) {
+
+            if ($cascadeDetails
                 ->getRelation()
                 ->whereIn(
                     $relationModel->qualifyColumn($relationModel->getCascadeStatusColumn()),
@@ -54,19 +55,20 @@ class CascadeDelete extends Cascade implements ShouldQueue
                 )
                 ->withTrashed()
                 ->exists()
-        ) {
-            return false;
-        } elseif ($cascadeDetails->getRelation()->first()) {
-            return false;
+            ) {
+                return false;
+            }
+
+            return true;
         }
 
-        return true;
+        return $cascadeDetails->getRelation()->doesntExist();
     }
 
     /**
      * @inheritDoc
      */
-    protected function onFinished(ShouldCascade $model): void
+    protected function onAllRelationsFinished(ShouldCascade $model): void
     {
         // If auto force delete is enabled -> force delete and finish
         if ($model->autoForceDeleteWhenAllRelationsAreDeleted()) {

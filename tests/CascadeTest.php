@@ -6,12 +6,13 @@ use App\Models\Car;
 use App\Models\Manufacturer;
 use App\Models\Review;
 use KhanhArtisan\LaravelBackbone\RelationCascade\CascadeStatus;
+use KhanhArtisan\LaravelBackbone\RelationCascade\Jobs\CascadeRestore;
 use KhanhArtisan\LaravelBackbone\RelationCascade\RelationCascadeManager;
 use KhanhArtisan\LaravelBackbone\RelationCascade\Jobs\CascadeDelete;
 
 class CascadeTest extends TestCase
 {
-    public function test_cascade_delete_simple()
+    public function test_cascade_simple()
     {
         $this->_register();
 
@@ -53,6 +54,40 @@ class CascadeTest extends TestCase
         $manufacturer->refresh();
         $this->assertSoftDeleted($manufacturer);
         $this->assertEquals(CascadeStatus::DELETED, $manufacturer->cascade_status);
+
+        // Now restore the manufacturer
+        $manufacturer->restore();
+        $this->assertEquals(CascadeStatus::RESTORING, $manufacturer->cascade_status);
+
+        $car->refresh();
+        $this->assertEquals(CascadeStatus::DELETED, $car->cascade_status);
+        $this->assertSoftDeleted($car);
+
+        // Run the restore job
+        CascadeRestore::dispatch();
+
+        // Now the car should be restoring
+        $car->refresh();
+        $this->assertEquals(CascadeStatus::RESTORING, $car->cascade_status);
+        $this->assertModelExists($car);
+
+        // And the manufacturer should be restoring too
+        $manufacturer->refresh();
+        $this->assertEquals(CascadeStatus::RESTORING, $manufacturer->cascade_status);
+        $this->assertModelExists($manufacturer);
+
+        // Run the restore job again
+        CascadeRestore::dispatch();
+
+        // Now the car should be restored
+        $car->refresh();
+        $this->assertEquals(CascadeStatus::IDLE, $car->cascade_status);
+        $this->assertModelExists($car);
+
+        // And the manufacturer should be restored too
+        $manufacturer->refresh();
+        $this->assertEquals(CascadeStatus::IDLE, $manufacturer->cascade_status);
+        $this->assertModelExists($manufacturer);
     }
 
     // TODO: Add more test cases

@@ -2,6 +2,8 @@
 
 namespace KhanhArtisan\LaravelBackbone\RelationCascade\Jobs;
 
+use App\Models\Car;
+use App\Models\Manufacturer;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -38,9 +40,16 @@ class CascadeRestore extends Cascade implements ShouldQueue
 
     protected function handleRelations(CascadeDetails $cascadeDetails, int $limit): int
     {
+        // Skip if the relation model doesn't support soft deleting
+        $relationModel = $cascadeDetails->getRelation()->getModel();
+        if (!method_exists($relationModel, 'getDeletedAtColumn')) {
+            return 0;
+        }
+
         $restored = 0;
         $cascadeDetails
             ->getRelation()
+            ->onlyTrashed()
             ->take($limit)
             ->get()
             ->each(function (Model $model) use (&$restored) {
@@ -59,10 +68,35 @@ class CascadeRestore extends Cascade implements ShouldQueue
 
     protected function isFinished(CascadeDetails $cascadeDetails): bool
     {
-        return $cascadeDetails->getRelation()->onlyTrashed()->doesntExist();
+        $relationModel = $cascadeDetails->getRelation()->getModel();
+        if ($relationModel instanceof ShouldCascade) {
+
+            if ($cascadeDetails
+                ->getRelation()
+                ->whereIn(
+                    $relationModel->qualifyColumn($relationModel->getCascadeStatusColumn()),
+                    collect(CascadeStatus::cases())
+                        ->filter(fn (CascadeStatus $status) => $status !== CascadeStatus::IDLE)
+                        ->all()
+                )
+                ->withTrashed()
+                ->exists()
+            ) {
+                return false;
+            }
+
+            return true;
+        }
+
+        // If relation model uses soft delete -> check if all relations are deleted
+        if (method_exists($relationModel, 'getDeletedAtColumn')) {
+            return $cascadeDetails->getRelation()->onlyTrashed()->doesntExist();
+        }
+
+        return true;
     }
 
-    protected function onFinished(ShouldCascade $model): void
+    protected function onAllRelationsFinished(ShouldCascade $model): void
     {
         $model->setAttribute($model->getCascadeStatusColumn(), CascadeStatus::IDLE);
     }

@@ -65,7 +65,7 @@ abstract class Cascade implements ShouldQueue
                 }
 
                 if ($this->handleCascadeModel($model)) {
-                    $this->onFinished($model);
+                    $this->onAllRelationsFinished($model);
                     $model->setAttribute($model->getCascadeUpdatedAtColumn(), now());
                     $model->save();
                 }
@@ -164,7 +164,7 @@ abstract class Cascade implements ShouldQueue
      * @param ShouldCascade $model
      * @return void
      */
-    abstract protected function onFinished(ShouldCascade $model): void;
+    abstract protected function onAllRelationsFinished(ShouldCascade $model): void;
 
     /**
      * Handle the relations

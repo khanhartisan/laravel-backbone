@@ -7,6 +7,11 @@ use Illuminate\Contracts\Database\Eloquent\Builder;
 class CascadeDetails
 {
     /**
+     * @var Builder
+     */
+    protected Builder $relation;
+
+    /**
      * Determine whether the relations should be deleted when the model is deleted.
      *
      * @var bool
@@ -44,17 +49,19 @@ class CascadeDetails
     /**
      * @param Builder $relation
      */
-    public function __construct(protected Builder $relation)
+    public function __construct(Builder $relation)
     {
-
+        $this->relation = clone $relation;
     }
 
     /**
+     * Return a new original relation
+     *
      * @return Builder
      */
     public function getRelation(): Builder
     {
-        return $this->relation;
+        return clone $this->relation;
     }
 
     // Generate getters & setters
