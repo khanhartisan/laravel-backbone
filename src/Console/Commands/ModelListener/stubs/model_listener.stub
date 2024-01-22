@@ -9,7 +9,7 @@ use KhanhArtisan\LaravelBackbone\ModelListener\ModelListenerInterface;
 class {{ class }} extends ModelListener implements ModelListenerInterface
 {
     /**
-     * Listener with higher priority will run first.
+     * Listeners with higher priority will run first.
      *
      * @return int
      */
@@ -29,7 +29,7 @@ class {{ class }} extends ModelListener implements ModelListenerInterface
     }
 
     /**
-     * List of events to listen to.
+     * The list of all the events to listen to.
      *
      * @return array<string>
      */
@@ -42,9 +42,10 @@ class {{ class }} extends ModelListener implements ModelListenerInterface
      * Handle the event.
      *
      * @param {{ modelName }} ${{ modelVariableName }}
+     * @param string $event
      * @return void
      */
-    protected function _handle({{ modelName }} ${{ modelVariableName }}): void
+    protected function _handle({{ modelName }} ${{ modelVariableName }}, string $event): void
     {
         // TODO: Implement the handle method
     }
