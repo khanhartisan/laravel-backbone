@@ -11,6 +11,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
+use KhanhArtisan\LaravelBackbone\RelationCascade\CascadeStatus;
 use KhanhArtisan\LaravelBackbone\RelationCascade\ShouldCascade;
 use KhanhArtisan\LaravelBackbone\RelationCascade\CascadeDetails;
 use KhanhArtisan\LaravelBackbone\RelationCascade\RelationCascadeManager;
@@ -63,10 +64,74 @@ abstract class Cascade implements ShouldQueue
                     return;
                 }
 
-                $this->handleCascadeDeletableModel($model);
-                $this->recordsLimit--;
+                if ($this->handleCascadeModel($model)) {
+                    $this->onFinished($model);
+                    $model->setAttribute($model->getCascadeUpdatedAtColumn(), now());
+                    $model->save();
+                }
             }
         }
+    }
+
+    /**
+     * Handle a cascade model, return true if all relations are settled, false otherwise
+     *
+     * @param ShouldCascade $model
+     * @return bool
+     */
+    protected function handleCascadeModel(ShouldCascade $model): bool
+    {
+        // Get the cascade delete details
+        $cascadeDeleteDetails = $model->getCascadeDetails();
+        $cascadeDeleteDetails = is_array($cascadeDeleteDetails) ? $cascadeDeleteDetails : [$cascadeDeleteDetails];
+
+        // Loop through all cascade delete details
+        foreach ($cascadeDeleteDetails as $details) {
+
+            // Skip if it should not delete
+            if (!$this->shouldProceed($details)) {
+                continue;
+            }
+
+            if (!$this->handleCascadeDetails($details)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param CascadeDetails $cascadeDetails
+     * @return bool true if all the relations are settled, false otherwise
+     */
+    protected function handleCascadeDetails(CascadeDetails $cascadeDetails): bool
+    {
+        // Return if the limit is reached
+        if ($this->recordsLimit <= 0) {
+            return false;
+        }
+
+        $limit = min($this->chunk, $this->recordsLimit);
+        $handledCount = 0;
+
+        if ($cascadeDetails->shouldUseTransaction()) {
+            DB::transaction(function () use ($cascadeDetails, $limit, &$recordsLimit, &$handledCount) {
+                $handledCount = $this->handleRelations($cascadeDetails, $limit);
+            });
+        } else {
+            $handledCount = $this->handleRelations($cascadeDetails, $limit);
+        }
+
+        // Update records limit
+        $this->recordsLimit -= $handledCount;
+
+        // Detect if maybe not all relations are deleted
+        if ($handledCount === $limit) {
+            return false;
+        }
+
+        return $this->isFinished($cascadeDetails);
     }
 
     /**
@@ -78,10 +143,35 @@ abstract class Cascade implements ShouldQueue
     abstract protected function buildModelQuery(Builder $query): void;
 
     /**
-     * Handle the cascade-deletable model
+     * Determine whether the job should proceed with the given cascade details
+     *
+     * @param CascadeDetails $cascadeDetails
+     * @return bool
+     */
+    abstract protected function shouldProceed(CascadeDetails $cascadeDetails): bool;
+
+    /**
+     * Tell if the job is finished with the given cascade details
+     *
+     * @param CascadeDetails $cascadeDetails
+     * @return bool
+     */
+    abstract protected function isFinished(CascadeDetails $cascadeDetails): bool;
+
+    /**
+     * This function will be triggered when all the relations of a model are settled
      *
      * @param ShouldCascade $model
      * @return void
      */
-    abstract protected function handleCascadeDeletableModel(ShouldCascade $model): void;
+    abstract protected function onFinished(ShouldCascade $model): void;
+
+    /**
+     * Handle the relations
+     *
+     * @param CascadeDetails $cascadeDetails
+     * @param int $limit
+     * @return int
+     */
+    abstract protected function handleRelations(CascadeDetails $cascadeDetails, int $limit): int;
 }

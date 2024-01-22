@@ -18,23 +18,32 @@ trait Cascades
      */
     public static function bootCascades(): void
     {
-        // Change cascade status to deleting when the model is being soft-deleted
-        static::deleted(function (self $model) {
-            if ($model->isForceDeleting()) {
-                return;
-            }
-
+        $updateModel = function (self $model, CascadeStatus $status) {
             $query = $model->setKeysForSaveQuery($model->newModelQuery());
 
             $columns = [
-                $model->getCascadeStatusColumn() => CascadeStatus::DELETING,
+                $model->getCascadeStatusColumn() => $status,
                 $model->getCascadeUpdatedAtColumn() => now(),
             ];
 
             $query->update($columns);
 
-            $model->{$model->getCascadeStatusColumn()} = CascadeStatus::DELETING;
+            $model->{$model->getCascadeStatusColumn()} = $status;
             $model->{$model->getCascadeUpdatedAtColumn()} = now();
+        };
+
+        // Change cascade status to deleting when the model is soft-deleted
+        static::deleted(function (self $model) use ($updateModel) {
+            if ($model->isForceDeleting()) {
+                return;
+            }
+
+            $updateModel($model, CascadeStatus::DELETING);
+        });
+
+        // Change cascade status to restoring when the model is restored
+        static::restored(function (self $model) use ($updateModel) {
+            $updateModel($model, CascadeStatus::RESTORING);
         });
     }
 

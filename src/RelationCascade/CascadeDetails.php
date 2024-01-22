@@ -7,6 +7,13 @@ use Illuminate\Contracts\Database\Eloquent\Builder;
 class CascadeDetails
 {
     /**
+     * Determine whether the relations should be deleted when the model is deleted.
+     *
+     * @var bool
+     */
+    protected bool $shouldDelete = true;
+
+    /**
      * Determine whether the relations should be restored when the model is restored.
      *
      * @var bool
@@ -51,6 +58,24 @@ class CascadeDetails
     }
 
     // Generate getters & setters
+
+    /**
+     * @return bool
+     */
+    public function shouldDelete(): bool
+    {
+        return $this->shouldDelete;
+    }
+
+    /**
+     * @param bool $shouldDelete
+     * @return $this
+     */
+    public function setShouldDelete(bool $shouldDelete): static
+    {
+        $this->shouldDelete = $shouldDelete;
+        return $this;
+    }
 
     /**
      * @return bool

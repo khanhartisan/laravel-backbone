@@ -37,114 +37,82 @@ class CascadeDelete extends Cascade implements ShouldQueue
     }
 
     /**
-     * Handle the cascade model
-     *
-     * @param ShouldCascade $model
-     * @return void
+     * @inheritDoc
      */
-    protected function handleCascadeDeletableModel(ShouldCascade $model): void
+    protected function isFinished(CascadeDetails $cascadeDetails): bool
     {
-        // Get the cascade delete details
-        $cascadeDeleteDetails = $model->getCascadeDetails();
-        $cascadeDeleteDetails = is_array($cascadeDeleteDetails) ? $cascadeDeleteDetails : [$cascadeDeleteDetails];
-
-        // Loop through all cascade delete details
-        $allRelationsAreDeleted = true;
-        foreach ($cascadeDeleteDetails as $details) {
-
-            // Return if the limit is reached
-            if ($this->recordsLimit <= 0) {
-                return;
-            }
-
-            // Skip if $details isn't an instance of CascadeDetails
-            if (!$details instanceof CascadeDetails) {
-                continue;
-            }
-
-            $limit = min($this->chunk, $this->recordsLimit);
-            $deletedCount = 0;
-
-            if ($details->shouldUseTransaction()) {
-                DB::transaction(function () use ($details, $limit, &$recordsLimit, &$deletedCount) {
-                    $deletedCount = $this->deleteRelations($details, $limit);
-                });
-            } else {
-                $deletedCount = $this->deleteRelations($details, $limit);
-            }
-
-            // Update records limit
-            $this->recordsLimit -= $deletedCount;
-
-            // Detect if maybe not all relations are deleted
-            if ($deletedCount === $limit) {
-                $allRelationsAreDeleted = false;
-                continue;
-            }
-
-            // Detect if at least 1 relation resource is not deleted
-            $relationModel = $details->getRelation()->getModel();
-            if ($relationModel instanceof ShouldCascade
-                and $details
-                    ->getRelation()
-                    ->whereIn(
-                        $relationModel->qualifyColumn($relationModel->getCascadeStatusColumn()),
-                        collect(CascadeStatus::cases())
-                            ->filter(fn (CascadeStatus $status) => $status !== CascadeStatus::DELETED)
-                            ->all()
-                    )
-                    ->withTrashed()
-                    ->exists()
-            ) {
-                $allRelationsAreDeleted = false;
-            } elseif ($details->getRelation()->first()) {
-                $allRelationsAreDeleted = false;
-            }
+        // Detect if at least 1 relation resource is not deleted
+        $relationModel = $cascadeDetails->getRelation()->getModel();
+        if ($relationModel instanceof ShouldCascade
+            and $cascadeDetails
+                ->getRelation()
+                ->whereIn(
+                    $relationModel->qualifyColumn($relationModel->getCascadeStatusColumn()),
+                    collect(CascadeStatus::cases())
+                        ->filter(fn (CascadeStatus $status) => $status !== CascadeStatus::DELETED)
+                        ->all()
+                )
+                ->withTrashed()
+                ->exists()
+        ) {
+            return false;
+        } elseif ($cascadeDetails->getRelation()->first()) {
+            return false;
         }
 
-        // If all relations are deleted
-        if ($allRelationsAreDeleted) {
+        return true;
+    }
 
-            // If auto force delete is enabled -> force delete and finish
-            if ($model->autoForceDeleteWhenAllRelationsAreDeleted()) {
-                $model->forceDelete();
-                return;
-            }
-
-            // Update the cascade_status
-            $model->setAttribute($model->getCascadeStatusColumn(), CascadeStatus::DELETED);
+    /**
+     * @inheritDoc
+     */
+    protected function onFinished(ShouldCascade $model): void
+    {
+        // If auto force delete is enabled -> force delete and finish
+        if ($model->autoForceDeleteWhenAllRelationsAreDeleted()) {
+            $model->forceDelete();
+            return;
         }
 
-        $model->setAttribute($model->getCascadeUpdatedAtColumn(), now());
-        $model->save();
+        // Update the cascade_status
+        $model->setAttribute($model->getCascadeStatusColumn(), CascadeStatus::DELETED);
     }
 
     /**
      * Delete the relations
      *
-     * @param CascadeDetails $cascadeDeleteDetails
+     * @param CascadeDetails $cascadeDetails
      * @param int $limit
      * @return int
      */
-    protected function deleteRelations(CascadeDetails $cascadeDeleteDetails, int $limit): int
+    protected function handleRelations(CascadeDetails $cascadeDetails, int $limit): int
     {
         // Batch delete
-        if (!$cascadeDeleteDetails->shouldDeletePerItem()) {
-            return $cascadeDeleteDetails->getRelation()->take($limit)->delete();
+        if (!$cascadeDetails->shouldDeletePerItem()) {
+            return $cascadeDetails->getRelation()->take($limit)->delete();
         }
 
         // Per item delete
+        $deleteAction = $cascadeDetails->shouldForceDelete() ? 'forceDelete' : 'delete';
         $deleted = 0;
-        $cascadeDeleteDetails
+        $cascadeDetails
             ->getRelation()
             ->take($limit)
             ->get()
-            ->each(function (Model $model) use (&$deleted, $cascadeDeleteDetails) {
-                if ($model->delete()) {
+            ->each(function (Model $model) use (&$deleted, $deleteAction) {
+                if ($model->{$deleteAction}()) {
                     $deleted++;
                 }
             });
 
         return $deleted;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    protected function shouldProceed(CascadeDetails $cascadeDetails): bool
+    {
+        return $cascadeDetails->shouldDelete();
     }
 }
