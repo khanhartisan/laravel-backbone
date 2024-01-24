@@ -68,6 +68,12 @@ class Observer
             throw new \InvalidArgumentException('Class '.$modelClass.' does not exists.');
         }
 
+        // Return if modelClass cannot be instantiated (abstract class, interface...)
+        $classReflection = new \ReflectionClass($modelClass);
+        if (!$classReflection->isInstantiable()) {
+            return;
+        }
+
         /** @var Model $model */
         $model = new $modelClass;
         if (!$model instanceof Model) {
