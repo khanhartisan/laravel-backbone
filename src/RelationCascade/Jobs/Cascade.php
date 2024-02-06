@@ -66,12 +66,12 @@ abstract class Cascade implements ShouldQueue
                 }
 
                 if ($this->handleCascadeModel($model)) {
-                    $this->onAllRelationsFinished($model);
+                    DB::transaction(fn () => $this->onAllRelationsFinished($model));
                 }
 
                 if ($model->exists) {
                     $model->setAttribute($model->getCascadeUpdatedAtColumn(), now());
-                    $model->save();
+                    $model->saveQuietly();
                 }
 
                 $this->recordsLimit--;
