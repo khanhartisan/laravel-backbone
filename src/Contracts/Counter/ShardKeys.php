@@ -30,7 +30,7 @@ class ShardKeys implements \Iterator
 
     public function current(): mixed
     {
-        return new ShardKey($this->key());
+        return (new ShardKey())->setKey($this->key());
     }
 
     public function key(): mixed

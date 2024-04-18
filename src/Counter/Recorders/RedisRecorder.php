@@ -7,6 +7,7 @@ use KhanhArtisan\LaravelBackbone\Contracts\Counter\Interval;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\Record;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\Recorder;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\ShardKey;
+use KhanhArtisan\LaravelBackbone\Contracts\Counter\ShardKeys;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\TimeHelper;
 
 class RedisRecorder implements Recorder
@@ -167,38 +168,29 @@ class RedisRecorder implements Recorder
                           ?int $time = null,
                           ?ShardKey $shardKey = null): bool
     {
+        // For redis, can only flush if interval and time are provided
+        if (!$interval or !$time) {
+            return false;
+        }
+
         try {
 
-            $tags = [sha1($this->keyPrefix($partitionKey))];
+            $tags = $this->tags($partitionKey, $interval, $time, $shardKey);
 
-            if ($interval) {
-                $tags = [sha1($this->keyPrefix(
-                    $partitionKey
-                    .$interval->value
-                ))];
-
-                if ($time) {
-                    $pointOfTime = TimeHelper::startTime($interval, $time);
-                    $tags = [sha1($this->keyPrefix(
-                        $partitionKey
-                        .$interval->value
-                        .$pointOfTime
-                    ))];
-
-                    if ($shardKey) {
-                        $tags = [sha1($this->keyPrefix(
-                            $partitionKey
-                            .$interval->value
-                            .$pointOfTime
-                            .$shardKey->getKey()
-                        ))];
+            // If a shard key is not provided, flush all possible keys
+            if (!$shardKey) {
+                $maxKeyLength = $this->getMaxShardKeyLength($partitionKey, $interval, $time);
+                $maxKeyLength = max($maxKeyLength, 1);
+                for ($i = 1; $i <= $maxKeyLength; $i++) {
+                    foreach (new ShardKeys($i) as $shardKey) {
+                        if (!$this->flush($partitionKey, $interval, $time, $shardKey)) {
+                            return false;
+                        }
                     }
                 }
             }
 
-            $this->redis->tags($tags)->flush();
-
-            return true;
+            return $this->redis->tags($tags)->flush();
 
         } catch (\Exception $e) {
             if (env('APP_DEBUG')) {
@@ -303,16 +295,15 @@ class RedisRecorder implements Recorder
     protected function tags(string $partitionKey, Interval $interval, int $time, ?ShardKey $shardKey = null): array
     {
         $timestamp = TimeHelper::startTime($interval, $time);
-        $tags = [
-            sha1($this->keyPrefix($partitionKey)),
-            sha1($this->keyPrefix($partitionKey.$interval->value)),
-            sha1($this->keyPrefix($partitionKey.$interval->value.$timestamp))
-        ];
 
-        if ($shardKey) {
-            $tags[] = sha1($this->keyPrefix($partitionKey.$interval->value.$timestamp.$shardKey->getKey()));
+        if (!$shardKey) {
+            return [
+                sha1($this->keyPrefix($partitionKey.$interval->value.$timestamp))
+            ];
         }
 
-        return $tags;
+        return [
+            sha1($this->keyPrefix($partitionKey.$interval->value.$timestamp.$shardKey->getKey()))
+        ];
     }
 }
