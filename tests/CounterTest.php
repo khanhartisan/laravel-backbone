@@ -168,8 +168,7 @@ class CounterTest extends TestCase
             $this->assertTrue($recorder->flush(
                 $partitionKey,
                 $interval,
-                $time,
-                $shardKey
+                $time
             ));
 
             // Test flushed
@@ -178,6 +177,17 @@ class CounterTest extends TestCase
                 $interval,
                 $time,
                 $shardKey
+            ));
+            $this->assertEquals(0, $recorder->getShardSize(
+                $partitionKey,
+                $interval,
+                $time,
+                $shardKey
+            ));
+            $this->assertEquals(0, $recorder->getMaxShardKeyLength(
+                $partitionKey,
+                $interval,
+                $time
             ));
         }
     }
