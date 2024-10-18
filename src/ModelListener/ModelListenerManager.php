@@ -76,6 +76,12 @@ class ModelListenerManager
                 throw new \InvalidArgumentException('Listener #'.$index.': Class '.$listenerClass.' does not exists.');
             }
 
+            // Skip if it is not instantiable
+            $reflection = new \ReflectionClass($listenerClass);
+            if (!$reflection->isInstantiable()) {
+                continue;
+            }
+
             $listener = new $listenerClass();
 
             // Check is valid listener
