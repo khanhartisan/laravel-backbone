@@ -31,13 +31,7 @@ class Enum
     {
         static::validateEnum($enumClass);
 
-        foreach ($enumClass::cases() as $enum) {
-            if (($enum->value ?? null) and $enum->value === $value) {
-                return $enum;
-            }
-        }
-
-        return $default;
+        return $enumClass::tryFrom($value) ?? $default;
     }
 
     /**
