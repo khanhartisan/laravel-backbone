@@ -22,14 +22,14 @@
         }
     ],
     "require-dev": {
-        "orchestra/testbench": "^9.0",
+        "orchestra/testbench": "^9.0|^10.0",
         "nunomaduro/collision": "^8.1",
         "laravel/sail": "^1.23"
     },
     "require": {
         "php": "^8.2",
-        "illuminate/http": "^11.0",
-        "illuminate/database": "^11.0",
+        "illuminate/http": "^11.0|^12.0",
+        "illuminate/database": "^11.0|^12.0",
         "symfony/finder": "^6.2|^7.0"
     },
     "scripts": {
