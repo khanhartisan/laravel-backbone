@@ -21,10 +21,17 @@
       - [Visiting the Resource after Update](#visiting-the-resource-after-update)
       - [Additional Data for Update Response](#additional-data-for-update-response)
     - [Destroy API](#destroy-api)
+      - [Destroy with Transaction](#destroy-with-transaction)
+      - [Visiting the Resource before Destroy](#visiting-the-resource-before-destroy)
+      - [Visiting the Resource after Destroy](#visiting-the-resource-after-destroy)
+      - [Additional Data for Destroy Response](#additional-data-for-destroy-response)
     - [Index API](#index-api)
       - [Modifying the Index Query](#modifying-the-index-query)
       - [Visiting the Resource Collection](#visiting-the-resource-collection)
-    - [Shallow Nesting API](#shallow-nesting-api)
+      - [Additional Data for Index Response](#additional-data-for-index-response)
+      - [Using a custom Resource Collection](#using-a-custom-resource-collection)
+      - [Using a custom Get Query Executor](#using-a-custom-get-query-executor)
+    - [Nested API](#nested-api)
   - [Route](#route)
   - [Authorization](#authorization)
 - [Repository](#repository)
@@ -648,6 +655,141 @@ class PostController extends JsonController
 }
 ```
 
+## Destroy API
+
+To delete an existing resource, we need to implement the `destroy` method in the controller.
+
+This method will return the deleted resource with a `200` status code.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Models\Post;
+use Illuminate\Http\Request;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    public function destroy(Request $request, Post $post): PostResource
+    {
+        $this->jsonDestroy($request, $post);
+    }
+}
+```
+
+Once the `destroy` method is implemented, and if you defined the [route](#route), you can now delete the resource by sending a `DELETE` request to the `/posts/{post}` endpoint.
+
+### Destroy with Transaction
+
+You can decide whether to use a transaction when deleting the resource by implementing the `destroyWithTransaction` method in the controller. By default, the transaction is enabled.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Models\Post;
+use Illuminate\Http\Request;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    protected function destroyWithTransaction(Request $request): bool
+    {
+        return true; // default is true
+    }
+}
+```
+
+### Visiting the Resource before Destroy
+
+Before the `delete()` method is called, you can visit the Eloquent model instance by implementing the `destroyResourceDeletingVisitors` method in the controller.
+
+This method returns an array of visitor instances or closures. It is similar to the [showResourceVisitors](#visiting-the-resource) method.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Models\Visitors\PostVisitor;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    protected function destroyResourceDeletingVisitors(Request $request): array
+    {
+        return [
+            new PostVisitor(),
+            fn (Post $post) => $post->title = strtoupper($post->title),
+        ];
+    }
+}
+```
+
+### Visiting the Resource after Destroy
+
+Just like [visiting the resource before destroy](#visiting-the-resource-before-destroy), you can visit the Eloquent model instance after the `delete()` method is called by implementing the `destroyResourceDeletedVisitors` method in the controller.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Models\Visitors\PostVisitor;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    protected function destroyResourceDeletedVisitors(Request $request): array
+    {
+        return [
+            new PostVisitor(),
+            fn (Post $post) => $post->title = strtoupper($post->title),
+        ];
+    }
+}
+```
+
+### Additional Data for Destroy Response
+
+Just like [additional data](#additional-data) for the show API, you can add additional data to the destroy response by implementing the `destroyAdditional` method in the controller.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Models\Post;
+use Illuminate\Http\Request;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    protected function destroyAdditional(Request $request, Post $post): array
+    {
+        return [
+            'custom_key' => 'custom_value',
+            'meta' => [
+                'key' => 'value',
+            ]
+        ];
+    }
+}
+```
+
 ## Index API
 
 To get a list of resources, we need to implement the `index` method in the controller.
@@ -866,5 +1008,134 @@ class PostController extends JsonController
     }
 }
 ```
+
+### Additional Data for Index Response
+
+You can add [additional data](https://laravel.com/docs/eloquent-resources#adding-meta-data-when-constructing-resources) to the json response data by implementing the `indexAdditional` method in the controller.
+
+Different from the [additional data](#additional-data) for the show API, the `indexAdditional` method will accept two parameters: the request instance and the `GetData` instance.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Models\Post;
+use Illuminate\Http\Request;
+use KhanhArtisan\LaravelBackbone\Eloquent\GetData;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    protected function indexAdditional(Request $request, GetData $getData): array
+    {
+        return [
+            'custom_key' => 'custom_value',
+            'meta' => [
+                'total' => $getData->total(),
+            ],
+            'additional' => $getData->additional(),
+            'resources_in_this_page' => $getData->getCollection()->count(),
+        ];
+    }
+}
+```
+
+### Using a Custom Resource Collection
+
+By default, the `jsonIndex` method will use the [collection()](https://laravel.com/docs/eloquent-resources#resource-collections) method from the resource class defined in the `resourceClass` method of your controller. 
+
+If you want to use a custom resource collection, you can define the `resourceCollectionClass` method in the controller.
+
+First we need to create a new resource collection class using the `php artisan make:resource` command.
+
+```bash
+php artisan make:resource PostCollection
+```
+
+Then register the resource collection class in the `resourceCollectionClass` method in the controller.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Http\Resources\PostCollection;
+use Illuminate\Http\Request;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    protected function resourceCollectionClass(Request $request): string
+    {
+        return PostCollection::class;
+    }
+}
+```
+
+### Using a custom Get Query Executor
+
+Get Query Executor is a class that executes the query to retrieve the resources from the database and return an instance of `GetData`.
+
+`GetData` is a class that contains the collection of resources, the total number of resources, and additional data that you may want to add.
+
+Get Query Executor must implement the `GetQueryExecutorInterface` interface.
+
+Let's create a new query executor:
+
+```php
+<?php
+
+namespace App\GetQueryExecutors;
+
+use Illuminate\Database\Eloquent\Builder;
+use KhanhArtisan\LaravelBackbone\Eloquent\GetData;
+use KhanhArtisan\LaravelBackbone\Eloquent\GetQueryExecutorInterface;
+
+class TestQueryExecutor implements GetQueryExecutorInterface
+{
+    public function execute(Builder $query): Builder
+    {
+        return new GetData(
+            $query->get(),
+            $query->count(),
+            ['custom_key' => 'custom_value']
+        );
+    }
+}
+```
+
+Then register the query executor in the `indexGetQueryExecutor` method in the controller.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\GetQueryExecutors\TestQueryExecutor;
+use Illuminate\Http\Request;
+use KhanhArtisan\LaravelBackbone\Eloquent\GetQueryExecutorInterface;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    protected function indexGetQueryExecutor(Request $request): GetQueryExecutorInterface
+    {
+        return new TestQueryExecutor();
+    }
+}
+```
+
+The default GetQueryExecutor will use the [paginate()](https://laravel.com/docs/eloquent-resources#pagination) method to retrieve the resources from the database.
+
+## Nested API
+
+We can also implement [Nested API Resources](https://laravel.com/docs/controllers#restful-nested-resources) using this package.
 
 # ...Updating...
