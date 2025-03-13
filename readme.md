@@ -1138,4 +1138,107 @@ The default GetQueryExecutor will use the [paginate()](https://laravel.com/docs/
 
 We can also implement [Nested API Resources](https://laravel.com/docs/controllers#restful-nested-resources) using this package.
 
+Simply create a [Resource Controller](#resource-controller) like we did above, and then define the nested route just like you would in Laravel.
+
+Then, inside your controller methods, you will need to accept the parent resource as a parameter.
+
+Continue from the `PostController` example above, let's create a new controller for the `Comment` model.
+
+Take a closer look at the `indexQueryScopes` method in the `CommentController` below. We need to define a query scope to filter the comments by the parent resource (here is the post).
+
+For other methods like `show`, `store`, `update`, `destroy`, you can use the Laravel's [scoped method](https://laravel.com/docs/controllers#restful-scoping-resource-routes) when registering the route to scope the comment by the post.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Comment;
+use App\Models\Post;
+use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Resources\Json\ResourceCollection;
+use App\Http\Requests\StoreCommentRequest;
+use App\Http\Requests\UpdateCommentRequest;
+use App\Http\Resources\CommentResource;
+
+class CommentController extends JsonController
+{
+    protected function modelClass(): string
+    {
+        return Comment::class;
+    }
+
+    protected function resourceClass(): string
+    {
+        return CommentResource::class;
+    }
+    
+    public function index(Request $request, Post $post): ResourceCollection    
+    {
+        // You may authorize the request against the parent resource
+        $this->authorize('view', $post);
+   
+        return $this->jsonIndex($request);
+    }
+    
+    // IMPORTANT:
+    // We need to define a query scope to filter the comments by the parent resource (here is the post)
+    protected function indexQueryScopes(Request $request): array
+    {
+        return [
+            function (Builder $query, Comment $commentModel) use ($request) {
+                
+                // Retrieve the post from the request
+                /** @var Post $post */
+                $post = $request->route('post');
+            
+                // Filter the comments by the post id
+                $query->where('post_id', $post->id);
+            },
+        ];
+    }
+    
+    public function store(StoreCommentRequest $request, Post $post): CommentResource
+    {
+        // You may authorize the request against the parent resource
+        $this->authorize('view', $post);
+        
+        // And then automatically set the post_id attribute
+        $data = $request->validated();
+        $data['post_id'] = $post->id;
+    
+        return $this->jsonStore($request, $data);
+    }
+    
+    public function show(Request $request, Post $post, Comment $comment): CommentResource
+    {
+        // You may authorize the request against the parent resource
+        $this->authorize('view', $post);
+
+        return $this->jsonShow($request, $comment);
+    }
+    
+    public function update(UpdateCommentRequest $request, Post $post, Comment $comment): CommentResource
+    {
+        // You may authorize the request against the parent resource,
+        // For example, you may want to check if the user can update the post in order to update the comment
+        $this->authorize('update', $post);
+
+        return $this->jsonUpdate($request, $comment);
+    }
+    
+    public function destroy(Request $request, Post $post, Comment $comment): CommentResource
+    {
+        // You may authorize the request against the parent resource
+        // For example, you may want to check if the user can update the post in order to delete the comment
+        $this->authorize('update', $post);
+
+        return $this->jsonDestroy($request, $comment);
+    }
+}
+```
+
+You can also use the Laravel's [shallow nesting](https://laravel.com/docs/controllers#shallow-nesting) feature and it will work just fine with this package.
+
 # ...Updating...
