@@ -6,6 +6,8 @@
 - [REST API](#rest-api)
   - [Resource Controller](#resource-controller)
     - [Index API](#index-api)
+      - [Modifying the Index Query](#modifying-the-index-query)
+      - [Visiting the Resource Collection](#visiting-the-resource-collection)
     - [Show API](#show-api)
     - [Store API](#store-api)
     - [Update API](#update-api)
@@ -290,3 +292,5 @@ class PostController extends JsonController
     }
 }
 ```
+
+# ...Updating...
