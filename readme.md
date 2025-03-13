@@ -5,13 +5,25 @@
 - [Installation](#installation)
 - [REST API](#rest-api)
   - [Resource Controller](#resource-controller)
+    - [Show API](#show-api)
+      - [Visiting the Resource](#visiting-the-resource)
+      - [Additional Data](#additional-data)
+    - [Store API](#store-api)
+      - [Modifying the Store Data](#modifying-the-store-data)
+      - [Store with Transaction](#store-with-transaction)
+      - [Visiting the Resource before Store](#visiting-the-resource-before-store)
+      - [Visiting the Resource after Store](#visiting-the-resource-after-store)
+      - [Additional Data for Store Response](#additional-data-for-store-response)
+    - [Update API](#update-api)
+      - [Modifying the Update Data](#modifying-the-update-data)
+      - [Update with Transaction](#update-with-transaction)
+      - [Visiting the Resource before Update](#visiting-the-resource-before-update)
+      - [Visiting the Resource after Update](#visiting-the-resource-after-update)
+      - [Additional Data for Update Response](#additional-data-for-update-response)
+    - [Destroy API](#destroy-api)
     - [Index API](#index-api)
       - [Modifying the Index Query](#modifying-the-index-query)
       - [Visiting the Resource Collection](#visiting-the-resource-collection)
-    - [Show API](#show-api)
-    - [Store API](#store-api)
-    - [Update API](#update-api)
-    - [Destroy API](#destroy-api)
     - [Shallow Nesting API](#shallow-nesting-api)
   - [Route](#route)
   - [Authorization](#authorization)
@@ -76,6 +88,565 @@ class PostController extends JsonController
 ```
 
 That's it! We just completed the setup for the `PostController`. Now let's continue reading to make the specific API.
+
+## Show API
+
+To get a single resource, we need to implement the `show` method in the controller.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Http\Resources\PostResource;
+use App\Models\Post;
+use Illuminate\Http\Request;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    public function show(Request $request, Post $post): PostResource
+    {
+        // The method below will return the PostResource instance
+        /** @var PostResource */
+        return $this->jsonShow($request, $post);
+    }
+}
+```
+
+Once the `show` method is implemented, and if you defined the [route](#route), you can now access the resource by sending a `GET` request to the `/posts/{post}` endpoint.
+
+### Visiting the Resource
+
+Before returning the resource, you can visit the Eloquent model instance by implementing the `showModelVisitors` method in the controller.
+
+First, let's create a new visitor class that implements the `ModelVisitorInterface` interface like below:
+
+```php
+<?php
+
+namespace App\Models\Visitors;
+
+use App\Models\Post;
+use Illuminate\Database\Eloquent\Model;
+
+class PostVisitor implements ModelVisitorInterface
+{
+    /**
+     * Handle an eloquent model
+     *
+     * @param Model $model
+     * @return void
+     */
+    public function apply(Model $model): void
+    {
+        // Because PHP doesn't support generic types,
+        // so the type of the $model parameter is typed as Model,
+        // But in this case, we know that the model is a Post instance.
+        /** @var Post $post */
+        $post = $model;
+
+        // Do something with the post
+        $post->title = strtoupper($post->title);
+    }
+}
+```
+
+Then let's add the visitor to the `showResourceVisitors` method in the controller.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Models\Visitors\PostVisitor;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    protected function showModelVisitors(Request $request): array
+    {
+        return [
+            new PostVisitor(),
+        ];
+    }
+}
+```
+
+Additionally, you can use a closure to visit the model directly in the `showModelVisitors` method. The closure must accept one parameter: the eloquent model instance.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Models\Post;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    protected function showModelVisitors(Request $request): array
+    {
+        return [
+            fn (Post $post) => $post->title = strtoupper($post->title),
+        ];
+    }
+}
+```
+
+### Additional Data
+
+You can add [additional data](https://laravel.com/docs/eloquent-resources#adding-meta-data-when-constructing-resources) to the json response data by implementing the `showAdditional` method in the controller.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Models\Post;
+use Illuminate\Http\Request;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    protected function showAdditional(Request $request, Post $post): array
+    {
+        return [
+            'custom_key' => 'custom_value',
+            'meta' => [
+                'key' => 'value',
+            ]
+        ];
+    }
+}
+```
+
+## Store API
+
+To create a new resource, we need to implement the `store` method in the controller.
+
+Before that, you need to make sure that you have defined the `$fillable` property in the model class. For security reasons, only the attributes in the `$fillable` property will be allowed to be stored.
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Post extends Model
+{
+    protected $fillable = [
+        'title',
+        'content',
+        'status',
+    ];
+}
+```
+
+Now, let's create a new request class using the `php artisan make:request` command.
+
+```bash
+php artisan make:request StorePostRequest
+```
+
+Open the `StorePostRequest` class and add the validation rules.
+
+```php
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StorePostRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        // You may want to add an authorization logic here,
+        // or you can leave it as true and implement the authorization in the controller.
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'title' => ['required', 'string', 'max:255'],
+            'content' => ['required', 'string', 'max:65535'],
+            'status' => ['required', 'string', 'in:draft,published,archived'],
+        ];
+    }
+}
+```
+
+Then, implement the `store` method in the controller.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Http\Resources\PostResource;
+use App\Models\Post;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    public function store(StorePostRequest $request): PostResource
+    {
+        return $this->jsonStore($request);
+    }
+}
+```
+
+Once the `store` method is implemented, and if you defined the [route](#route), you can now create a new resource by sending a `POST` request to the `/posts` endpoint.
+
+### Modifying the Store Data
+
+Sometimes you may want to modify the data before storing it in the database. You can simply pass your array data as the second argument to the `jsonStore` method like below:
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Http\Requests\StorePostRequest;
+use App\Http\Resources\PostResource;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    public function store(StorePostRequest $request): PostResource
+    {
+        $validatedData = $request->validated();
+        
+        // Modify the data
+        $validatedData['title'] = strtoupper($validatedData['title']);
+        
+        return $this->jsonStore($request, $validatedData);
+    }
+}
+```
+
+### Store with Transaction
+
+You can decide whether to use a transaction when storing the data by implementing the `storeWithTransaction` method in the controller. By default, the transaction is enabled.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Http\Requests\StorePostRequest;
+use App\Http\Resources\PostResource;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    protected function storeWithTransaction(StorePostRequest $request): bool
+    {
+        return true; // default is true
+    }
+}
+```
+
+### Visiting the Resource before Store
+
+Before the `save()` method is called, you can visit the Eloquent model instance by implementing the `storeResourceSavingVisitors` method in the controller.
+
+This method returns an array of visitor instances or closures. It is similar to the [showResourceVisitors](#visiting-the-resource) method.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Models\Visitors\PostVisitor;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    protected function storeResourceSavingVisitors(Request $request): array
+    {
+        return [
+            new PostVisitor(),
+            fn (Post $post) => $post->title = strtoupper($post->title),
+        ];
+    }
+}
+```
+
+### Visiting the Resource after Store
+
+Just like [visiting the resource before store](#visiting-the-resource-before-store), you can visit the Eloquent model instance after the `save()` method is called by implementing the `storeResourceSavedVisitors` method in the controller.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Models\Visitors\PostVisitor;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    protected function storeResourceSavedVisitors(Request $request): array
+    {
+        return [
+            new PostVisitor(),
+            fn (Post $post) => $post->title = strtoupper($post->title),
+        ];
+    }
+}
+```
+
+### Additional Data for Store Response
+
+Just like [additional data](#additional-data) for the show API, you can add additional data to the store response by implementing the `storeAdditional` method in the controller.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Models\Post;
+use Illuminate\Http\Request;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    protected function storeAdditional(Request $request, Post $post): array
+    {
+        return [
+            'custom_key' => 'custom_value',
+            'meta' => [
+                'key' => 'value',
+            ]
+        ];
+    }
+}
+```
+
+## Update API
+
+To update an existing resource, we need to implement the `update` method in the controller.
+
+Before that, you need to make sure that you have defined the `$fillable` property in the model class just as we did in the [store API](#store-api).
+
+Now, let's create a new request class using the `php artisan make:request` command.
+
+```bash
+php artisan make:request UpdatePostRequest
+```
+
+Open the `UpdatePostRequest` class and add the validation rules.
+
+```php
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class UpdatePostRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        // You may want to add an authorization logic here,
+        // or you can leave it as true and implement the authorization in the controller.
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'title' => ['string', 'max:255'],
+            'content' => ['string', 'max:65535'],
+            'status' => ['string', 'in:draft,published,archived'],
+        ];
+    }
+}
+```
+
+Then, implement the `update` method in the controller.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Http\Requests\UpdatePostRequest;
+use App\Http\Resources\PostResource;
+use App\Models\Post;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    public function update(UpdatePostRequest $request, Post $post): PostResource
+    {
+        return $this->jsonUpdate($request, $post);
+    }
+}
+```
+
+Once the `update` method is implemented, and if you defined the [route](#route), you can now update the resource by sending a `PATCH` request to the `/posts/{post}` endpoint.
+
+### Modifying the Update Data
+
+Sometimes you may want to modify the data before updating it in the database. You can simply pass your array data as the third argument to the `jsonUpdate` method like below:
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Http\Requests\UpdatePostRequest;
+use App\Http\Resources\PostResource;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    public function update(UpdatePostRequest $request, Post $post): PostResource
+    {
+        $validatedData = $request->validated();
+        
+        // Modify the data
+        $validatedData['title'] = strtoupper($validatedData['title']);
+        
+        return $this->jsonUpdate($request, $post, $validatedData);
+    }
+}
+```
+
+### Update with Transaction
+
+You can decide whether to use a transaction when updating the data by implementing the `updateWithTransaction` method in the controller. By default, the transaction is enabled.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Http\Requests\UpdatePostRequest;
+use App\Http\Resources\PostResource;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    protected function updateWithTransaction(UpdatePostRequest $request): bool
+    {
+        return true; // default is true
+    }
+}
+```
+
+### Visiting the Resource before Update
+
+Before the `save()` method is called, you can visit the Eloquent model instance by implementing the `updateResourceSavingVisitors` method in the controller.
+
+This method returns an array of visitor instances or closures. It is similar to the [showResourceVisitors](#visiting-the-resource) method.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Models\Visitors\PostVisitor;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    protected function updateResourceSavingVisitors(Request $request): array
+    {
+        return [
+            new PostVisitor(),
+            fn (Post $post) => $post->title = strtoupper($post->title),
+        ];
+    }
+}
+```
+
+### Visiting the Resource after Update
+
+Just like [visiting the resource after store](#visiting-the-resource-after-store), you can visit the Eloquent model instance after the `save()` method is called by implementing the `updateResourceSavedVisitors` method in the controller.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Models\Visitors\PostVisitor;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    protected function updateResourceSavedVisitors(Request $request): array
+    {
+        return [
+            new PostVisitor(),
+            fn (Post $post) => $post->title = strtoupper($post->title),
+        ];
+    }
+}
+```
+
+### Additional Data for Update Response
+
+Just like [additional data](#additional-data) for the show API, you can add additional data to the update response by implementing the `updateAdditional` method in the controller.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Models\Post;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    protected function updateAdditional(Request $request, Post $post): array
+    {
+        return [
+            'custom_key' => 'custom_value',
+            'meta' => [
+                'key' => 'value',
+            ]
+        ];
+    }
+}
+```
 
 ## Index API
 
@@ -221,6 +792,7 @@ namespace App\Models\Visitors;
 
 use App\Models\Post;
 use Illuminate\Database\Eloquent\Collection;
+use KhanhArtisan\LaravelBackbone\Eloquent\CollectionVisitorInterface;
 
 class PostCollectionVisitor implements CollectionVisitorInterface
 {
