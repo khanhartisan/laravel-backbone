@@ -109,6 +109,8 @@ Once the `index` method is implemented, and if you defined the [route](#route), 
 
 You can modify the query used to fetch the resources by overriding the `indexQueryScopes` method in the controller using the Laravel query Scope classes.
 
+The most common use case is to filter the resources based on the query parameters. For example, you can filter the posts by status.
+
 First, let's create a new query scope class using the `php artisan make:scope` command.
 
 ```bash
