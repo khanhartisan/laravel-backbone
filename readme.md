@@ -43,7 +43,7 @@
 
 Requirements:
 - PHP >= 8.2
-- Laravel >= 11.0
+- Laravel ^11.0 | ^12.0
 
 Install the package via Composer:
 
