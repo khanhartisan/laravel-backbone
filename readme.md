@@ -32,12 +32,15 @@
       - [Using a custom Resource Collection](#using-a-custom-resource-collection)
       - [Using a custom Get Query Executor](#using-a-custom-get-query-executor)
     - [Nested API](#nested-api)
-  - [Route](#route)
   - [Authorization](#authorization)
-- [Repository](#repository)
+  - [Route](#route)
 - [Model Listener](#model-listener)
+  - [Creating a Model Listener](#creating-a-model-listener)
+  - [Registering Models in a custom path](#registering-models-in-a-custom-path)
 - [Relation Cascade](#relation-cascade)
+  - [Using Relation Cascade](#using-relation-cascade)
 - [Counter](#counter)
+- [Repository](#repository)
 
 # Installation
 
@@ -1243,4 +1246,319 @@ class CommentController extends JsonController
 
 You can also use the Laravel's [shallow nesting](https://laravel.com/docs/controllers#shallow-nesting) feature and it will work just fine with this package.
 
-# ...Updating...
+## Authorization
+
+You can use Laravel's [Authorization](https://laravel.com/docs/authorization) feature to authorize the request.
+
+In this document, we only give some practical examples of how to authorize the request in the controller.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Models\Post;
+use Illuminate\Support\Facades\Gate;
+
+class PostController extends JsonController
+{
+    // ...
+    
+    public function show(Request $request, Post $post)
+    {
+        // Make sure that you defined the gate logic.
+        // Now this will throw an exception if the user is not authorized
+        Gate::authorize('view-post', $post);
+        
+        // Or if you defined the PostPolicy
+        Gate::authorize('view', $post);
+        
+        // Or you can also do this
+        if ($request->user()->cannot('view', $post)) {
+            abort(403);
+        }
+        
+        return $this->jsonShow($request, $post);
+    }
+}
+```
+
+## Route
+
+As we implemented the [Resource Controller](#resource-controller) above, we can now use [Laravel's Route::resource()](https://laravel.com/docs/12.x/controllers#resource-controllers) method to register the routes.
+
+```php
+<?php
+
+use App\Http\Controllers\PostController;
+use App\Http\Controllers\CommentController;
+
+// This will register the following routes: show, store, update, destroy, index
+Route::resource('posts', PostController::class);
+
+// And for nested resources
+Route::resource('posts.comments', CommentController::class);
+
+// Or for shallow nested resources
+Route::resource('posts.comments', CommentController::class)->shallow();
+```
+
+# Model Listener
+
+Laravel provided the [Model Observers](https://laravel.com/docs/eloquent#observers) feature to listen for Eloquent events. However, if we have a lot of logic to handle, it can be difficult to maintain.
+
+This package provides a more structured approach to handle the Eloquent events by using the Model Listener.
+
+## Creating a Model Listener
+
+Before creating a new listener, you need to update your model to implement the `KhanhArtisan\LaravelBackbone\ModelListener\ObservableModel` interface. This interface is a flag to let the package know that the model should be observed.
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use KhanhArtisan\LaravelBackbone\ModelListener\ObservableModel;
+
+class Post extends Model implements ObservableModel
+{
+    // ...
+}
+```
+
+Now, create a new listener class using the `php artisan make:model-listener` command.
+
+```bash
+php artisan make:model-listener
+```
+
+Then it will ask you to enter the listener name, the model class, and the events you want to listen to (separated by commas).
+
+Assume that we just created a new listener class named `PostNotificationListener` for the `Post` model and it listens to the `created` and `deleted` events. Now let's take a look at the generated class.
+
+```php
+<?php
+
+namespace App\ModelListeners\Post;
+
+use App\Models\Post;
+use KhanhArtisan\LaravelBackbone\ModelListener\ModelListener;
+use KhanhArtisan\LaravelBackbone\ModelListener\ModelListenerInterface;
+
+class PostNotification extends ModelListener implements ModelListenerInterface
+{
+    /**
+     * Listeners with higher priority will run first.
+     *
+     * @return int
+     */
+    public function priority(): int
+    {
+        return 0;
+    }
+
+    /**
+     * Listen to the events of the given model.
+     *
+     * @return string
+     */
+    public function modelClass(): string
+    {
+        return Post::class;
+    }
+
+    /**
+     * The list of all the events to listen to.
+     *
+     * @return array<string>
+     */
+    public function events(): array
+    {
+        return ["created","deleted"];
+    }
+
+    /**
+     * Handle the event.
+     *
+     * @param Post $post
+     * @param string $event
+     * @return void
+     */
+    protected function _handle(Post $post, string $event): void
+    {
+        // Send notification when post is created
+        if ($event === 'created') {
+            // TODO: Send "created" notification
+        }
+        
+        // Log when post is deleted
+        if ($event === 'deleted') {
+            // TODO: Send "deleted" notification
+        }
+    }
+}
+```
+
+Finally, let's confirm if the listener is registered by using this command
+
+```bash
+php artisan model-listener:show
+```
+
+If you forgot to implement the `ObservableModel` interface in the model, you will see a warning message: **App\Models\Post model is not registered, the listeners may not be triggered.** Otherwise, you will see the registered listeners sorted by priority (higher priority will run first).
+
+## Registering Models in a custom path
+
+By default, this package will look for models in the `app/Models` directory. If you want to register models in a custom path, you can do it in your `AppServiceProvider.php`
+
+```php
+<?php
+
+namespace App\Providers;
+
+// ...
+use KhanhArtisan\LaravelBackbone\ModelListener\Observer;
+
+class AppServiceProvider extends ServiceProvider
+{
+    public function boot(): void
+    {
+        // ...
+        Observer::registerModelsFrom(
+            // The first parameter is the namespace prefix of the models
+            $this->app->getNamespace().'CustomModels', // App\CustomerModels
+            
+            // The second parameter is the path to the models
+            app_path('CustomModels');
+        );
+    }
+}
+```
+
+# Relation Cascade
+
+The traditional approach to handling the cascade operation is to use the foreign key constraints with the `ON DELETE CASCADE` option. However, this approach has some limitations, such as the inability to handle the `softDeletes` and the lack of flexibility.
+
+But that may lead to some performance issues, especially when you have a lot of records to delete. Let's say you have a post with a few millions of comments, and you want to delete the post. The `ON DELETE CASCADE` option will delete all the comments in one query, which can be slow. And some databases even don't support foreign key constraints.
+
+This package provides a more flexible approach to handle the cascade operation by using the `Relation Cascade`. It works by performing the cascade operation in the application layer, and in chunks to avoid performance issues.
+
+## Using Relation Cascade
+
+Only models which implement the [Laravel's SoftDeletes](#https://laravel.com/docs/12.x/eloquent#soft-deleting) can use the Relation Cascade feature.
+
+First, you need to add a migration do your model table to support the cascade operation.
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('posts', function (Blueprint $table) {
+            
+            //...
+            
+            // SoftDeletes is required
+            $table->softDeletes();
+            
+            // Add the cascade column
+            $table->cascades();
+            
+            // We recommend you to add this index to improve the performance
+            $table->index(['cascade_status', 'deleted_at']);
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('posts');
+    }
+};
+```
+
+Now, open your model class, implement the `ShouldCascade` interface, add the `Cascades` trait, and implement the `getCascadeDetails()` method.
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use KhanhArtisan\LaravelBackbone\RelationCascade\Cascades;
+use KhanhArtisan\LaravelBackbone\RelationCascade\CascadeDetails;
+use KhanhArtisan\LaravelBackbone\RelationCascade\ShouldCascade;
+
+class Post extends Model implements ShouldCascade
+{
+    // ...
+    use Cascades;
+    
+    public function getCascadeDetails(): CascadeDetails|array
+    {
+        return [
+        
+            // Register the cascade operation for the "comments" relation
+            (new CascadeDetails($this->comments()))
+                
+                // Cascade delete, default is true
+                ->setShouldDelete(true)
+                
+                // Cascade restore, only work if comments also support soft-delete,
+                // default is true
+                ->setShouldRestore(true)
+                
+                // If true, the comments will be force deleted instead of soft-delete,
+                // default is false
+                ->setShouldForceDelete(false) 
+                
+                // If true, the cascade operation will be wrapped in a transaction,
+                // default is true
+                ->setShouldUseTransaction(true)
+                
+                // If true, the cascade operation will be performed per item,
+                // If you set it to false, the cascade operation will be performed in batch,
+                // which can be faster but the model events will not be triggered.
+                // default is true.
+                ->setShouldDeletePerItem(true)
+        ];
+    }
+    
+    public function comments(): HasMany
+    {
+        return $this->hasMany(Comment::class);
+    }
+}
+```
+
+Finally, you need to register two jobs to handle the cascade operation in the background.
+
+```php
+<?php
+
+use Illuminate\Support\Facades\Schedule;
+use KhanhArtisan\LaravelBackbone\RelationCascade\Jobs\CascadeDelete;
+use KhanhArtisan\LaravelBackbone\RelationCascade\Jobs\CascadeRestore;
+
+// Optional, you may define the records limit and the chunk size
+$recordsLimit = 10000; // default is 10000, this is the maximum number of records to handle per job
+$chunkSize = 100; // default is 100, this is the number of records to handle per execution
+Schedule::job(new CascadeDelete($recordsLimit, $chunkSize))->everyMinute();
+Schedule::job(new CascadeRestore($recordsLimit, $chunkSize))->everyMinute();
+```
+
+Now, when you delete a post, all the comments will be deleted in the background. And when you restore a post, all the comments will be restored.
