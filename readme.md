@@ -1468,7 +1468,7 @@ use App\Models\Post;
 use KhanhArtisan\LaravelBackbone\ModelListener\ModelListener;
 use KhanhArtisan\LaravelBackbone\ModelListener\ModelListenerInterface;
 
-class PostNotification extends ModelListener implements ModelListenerInterface
+class PostNotificationListener extends ModelListener implements ModelListenerInterface
 {
     /**
      * Listeners with higher priority will run first.
