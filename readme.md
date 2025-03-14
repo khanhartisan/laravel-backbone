@@ -34,6 +34,7 @@ I'm open to bug reports, feature requests, and contributions. Feel free to creat
       - [Using a custom Resource Collection](#using-a-custom-resource-collection)
       - [Using a custom Get Query Executor](#using-a-custom-get-query-executor)
     - [Nested API](#nested-api)
+  - [CRUD Test](#crud-test)
   - [Authorization](#authorization)
   - [Route](#route)
 - [Model Listener](#model-listener)
@@ -101,7 +102,7 @@ class PostController extends JsonController
 
 That's it! We just completed the setup for the `PostController`. Now let's continue reading to make the specific API.
 
-## Show API
+### Show API
 
 To get a single resource, we need to implement the `show` method in the controller.
 
@@ -130,7 +131,7 @@ class PostController extends JsonController
 
 Once the `show` method is implemented, and if you defined the [route](#route), you can now access the resource by sending a `GET` request to the `/posts/{post}` endpoint.
 
-### Visiting the Resource
+#### Visiting the Resource
 
 Before returning the resource, you can visit the Eloquent model instance by implementing the `showModelVisitors` method in the controller.
 
@@ -212,7 +213,7 @@ class PostController extends JsonController
 }
 ```
 
-### Additional Data
+#### Additional Data
 
 You can add [additional data](https://laravel.com/docs/eloquent-resources#adding-meta-data-when-constructing-resources) to the json response data by implementing the `showAdditional` method in the controller.
 
@@ -241,7 +242,7 @@ class PostController extends JsonController
 }
 ```
 
-## Store API
+### Store API
 
 To create a new resource, we need to implement the `store` method in the controller.
 
@@ -323,7 +324,7 @@ class PostController extends JsonController
 
 Once the `store` method is implemented, and if you defined the [route](#route), you can now create a new resource by sending a `POST` request to the `/posts` endpoint.
 
-### Modifying the Store Data
+#### Modifying the Store Data
 
 Sometimes you may want to modify the data before storing it in the database. You can simply pass your array data as the second argument to the `jsonStore` method like below:
 
@@ -352,7 +353,7 @@ class PostController extends JsonController
 }
 ```
 
-### Store with Transaction
+#### Store with Transaction
 
 You can decide whether to use a transaction when storing the data by implementing the `storeWithTransaction` method in the controller. By default, the transaction is enabled.
 
@@ -376,7 +377,7 @@ class PostController extends JsonController
 }
 ```
 
-### Visiting the Resource before Store
+#### Visiting the Resource before Store
 
 Before the `save()` method is called, you can visit the Eloquent model instance by implementing the `storeResourceSavingVisitors` method in the controller.
 
@@ -404,7 +405,7 @@ class PostController extends JsonController
 }
 ```
 
-### Visiting the Resource after Store
+#### Visiting the Resource after Store
 
 Just like [visiting the resource before store](#visiting-the-resource-before-store), you can visit the Eloquent model instance after the `save()` method is called by implementing the `storeResourceSavedVisitors` method in the controller.
 
@@ -430,7 +431,7 @@ class PostController extends JsonController
 }
 ```
 
-### Additional Data for Store Response
+#### Additional Data for Store Response
 
 Just like [additional data](#additional-data) for the show API, you can add additional data to the store response by implementing the `storeAdditional` method in the controller.
 
@@ -459,7 +460,7 @@ class PostController extends JsonController
 }
 ```
 
-## Update API
+### Update API
 
 To update an existing resource, we need to implement the `update` method in the controller.
 
@@ -525,7 +526,7 @@ class PostController extends JsonController
 
 Once the `update` method is implemented, and if you defined the [route](#route), you can now update the resource by sending a `PATCH` request to the `/posts/{post}` endpoint.
 
-### Modifying the Update Data
+#### Modifying the Update Data
 
 Sometimes you may want to modify the data before updating it in the database. You can simply pass your array data as the third argument to the `jsonUpdate` method like below:
 
@@ -554,7 +555,7 @@ class PostController extends JsonController
 }
 ```
 
-### Update with Transaction
+#### Update with Transaction
 
 You can decide whether to use a transaction when updating the data by implementing the `updateWithTransaction` method in the controller. By default, the transaction is enabled.
 
@@ -578,7 +579,7 @@ class PostController extends JsonController
 }
 ```
 
-### Visiting the Resource before Update
+#### Visiting the Resource before Update
 
 Before the `save()` method is called, you can visit the Eloquent model instance by implementing the `updateResourceSavingVisitors` method in the controller.
 
@@ -606,7 +607,7 @@ class PostController extends JsonController
 }
 ```
 
-### Visiting the Resource after Update
+#### Visiting the Resource after Update
 
 Just like [visiting the resource after store](#visiting-the-resource-after-store), you can visit the Eloquent model instance after the `save()` method is called by implementing the `updateResourceSavedVisitors` method in the controller.
 
@@ -632,7 +633,7 @@ class PostController extends JsonController
 }
 ```
 
-### Additional Data for Update Response
+#### Additional Data for Update Response
 
 Just like [additional data](#additional-data) for the show API, you can add additional data to the update response by implementing the `updateAdditional` method in the controller.
 
@@ -660,7 +661,7 @@ class PostController extends JsonController
 }
 ```
 
-## Destroy API
+### Destroy API
 
 To delete an existing resource, we need to implement the `destroy` method in the controller.
 
@@ -688,7 +689,7 @@ class PostController extends JsonController
 
 Once the `destroy` method is implemented, and if you defined the [route](#route), you can now delete the resource by sending a `DELETE` request to the `/posts/{post}` endpoint.
 
-### Destroy with Transaction
+#### Destroy with Transaction
 
 You can decide whether to use a transaction when deleting the resource by implementing the `destroyWithTransaction` method in the controller. By default, the transaction is enabled.
 
@@ -712,7 +713,7 @@ class PostController extends JsonController
 }
 ```
 
-### Visiting the Resource before Destroy
+#### Visiting the Resource before Destroy
 
 Before the `delete()` method is called, you can visit the Eloquent model instance by implementing the `destroyResourceDeletingVisitors` method in the controller.
 
@@ -740,7 +741,7 @@ class PostController extends JsonController
 }
 ```
 
-### Visiting the Resource after Destroy
+#### Visiting the Resource after Destroy
 
 Just like [visiting the resource before destroy](#visiting-the-resource-before-destroy), you can visit the Eloquent model instance after the `delete()` method is called by implementing the `destroyResourceDeletedVisitors` method in the controller.
 
@@ -766,7 +767,7 @@ class PostController extends JsonController
 }
 ```
 
-### Additional Data for Destroy Response
+#### Additional Data for Destroy Response
 
 Just like [additional data](#additional-data) for the show API, you can add additional data to the destroy response by implementing the `destroyAdditional` method in the controller.
 
@@ -795,7 +796,7 @@ class PostController extends JsonController
 }
 ```
 
-## Index API
+### Index API
 
 To get a list of resources, we need to implement the `index` method in the controller.
 
@@ -823,7 +824,7 @@ class PostController extends JsonController
 
 Once the `index` method is implemented, and if you defined the [route](#route), you can now access the list of resources by sending a `GET` request to the `/posts` endpoint.
 
-### Modifying the Index Query
+#### Modifying the Index Query
 
 You can modify the query used to fetch the resources by overriding the `indexQueryScopes` method in the controller using the Laravel query Scope classes.
 
@@ -928,7 +929,7 @@ class PostController extends JsonController
 }
 ```
 
-### Visiting the Resource Collection
+#### Visiting the Resource Collection
 
 Before returning the resource collection, you can visit the Eloquent Collection instance by implementing the `indexCollectionVisitors` method in the controller.
 
@@ -1016,7 +1017,7 @@ class PostController extends JsonController
 }
 ```
 
-### Additional Data for Index Response
+#### Additional Data for Index Response
 
 You can add [additional data](https://laravel.com/docs/eloquent-resources#adding-meta-data-when-constructing-resources) to the json response data by implementing the `indexAdditional` method in the controller.
 
@@ -1050,7 +1051,7 @@ class PostController extends JsonController
 }
 ```
 
-### Using a Custom Resource Collection
+#### Using a Custom Resource Collection
 
 By default, the `jsonIndex` method will use the [collection()](https://laravel.com/docs/eloquent-resources#resource-collections) method from the resource class defined in the `resourceClass` method of your controller. 
 
@@ -1084,7 +1085,7 @@ class PostController extends JsonController
 }
 ```
 
-### Using a custom Get Query Executor
+#### Using a custom Get Query Executor
 
 Get Query Executor is a class that executes the query to retrieve the resources from the database and return an instance of `GetData`.
 
@@ -1141,7 +1142,7 @@ class PostController extends JsonController
 
 The default GetQueryExecutor will use the [paginate()](https://laravel.com/docs/eloquent-resources#pagination) method to retrieve the resources from the database.
 
-## Nested API
+### Nested API
 
 We can also implement [Nested API Resources](https://laravel.com/docs/controllers#restful-nested-resources) using this package.
 
@@ -1247,6 +1248,124 @@ class CommentController extends JsonController
 ```
 
 You can also use the Laravel's [shallow nesting](https://laravel.com/docs/controllers#shallow-nesting) feature and it will work just fine with this package.
+
+## CRUD Test
+
+This package provides a simple way to test your CRUD API using the `JsonApiTest` class.
+
+Let's take a look at the example below:
+
+```php
+<?php
+
+namespace KhanhArtisan\LaravelBackbone\Tests;
+
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
+use KhanhArtisan\LaravelBackbone\Testing\JsonApiTest;
+use KhanhArtisan\LaravelBackbone\Testing\JsonCrudTestData;
+
+class JsonControllerTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_basic_crud()
+    {
+        // Prepare the test data
+        $testData = new JsonCrudTestData();
+        
+        // Set mandatory data for the store and update request
+        $testData->setStoreData([
+            'title' => Str::random()
+        ])
+        ->setUpdateData([
+            'title' => Str::random()
+        ]);
+        
+        // Below is optional, you may set or skip any of them
+        $testData
+            // Acting as a user
+            // Default is null, the tester will act as a guest
+            ->actingAs(User::factory()->create())
+            
+            // Set the expected store response code
+            // Default is 201
+            ->setExpectedStoreResponseCode(201)
+            
+            // Set the expected store response data
+            // Default is null and the tester will check
+            // if the response data is the same as the store data
+            ->setExpectedStoreResponseData([
+                'data' => [
+                    'title' => '...something you expected...'
+                ]
+            ])
+            
+            // Set the expected update response code
+            // Default is 200
+            ->setExpectedUpdateResponseCode(200)
+            
+            // Set the expected update response data
+            // Default null and the tester will check
+            // if the response data is the same as the update data
+            ->setExpectedUpdateResponseData([
+                'data' => [
+                    'title' => '...something you expected...'
+                ]
+            ])
+            
+            // Set the expected index response code
+            // Default is 200
+            ->setExpectedIndexResponseCode(200)
+
+            // Default is null and the tester will check
+            // if the response data has 1 record
+            // that is the same as the updated record.
+            ->setExpectedIndexResponseData([
+                'data' => [
+                    [
+                        'title' => '...something you expected...'
+                    ]
+                ]
+            ])
+            
+            // Set the expected show response code
+            // Default is 200
+            ->setExpectedShowResponseCode(200)
+            
+            // Set the expected show response data
+            // Default is null and the tester will check
+            // if the response data is the same as the updated record
+            ->setExpectedShowResponseData([
+                'data' => [
+                    'title' => '...something you expected...'
+                ]
+            ])
+            
+            // Set the expected destroy response code
+            // Default is 200
+            ->setExpectedDestroyResponseCode(200)
+            
+            // Set the expected destroy response data
+            // Default is null and the tester will check
+            // if the response data is the same as the updated record
+            ->setExpectedDestroyResponseData([
+                'data' => [
+                    'title' => '...something you expected...'
+                ]
+            ]);
+    
+        // Initialize the JsonApiTest class,
+        // And perform the basic CRUD test
+        (new JsonApiTest($this))->testBasicCrud(
+            '/api/posts',
+            $testData
+        );
+    }
+}
+```
 
 ## Authorization
 
@@ -1573,7 +1692,7 @@ Schedule::job(new CascadeRestore($recordsLimit, $chunkSize))->everyMinute();
 
 Now, when you delete a post, all the comments will be deleted in the background. And when you restore a post, all the comments will be restored.
 
-### Registering ShouldCascade Models in a custom path
+## Registering ShouldCascade Models in a custom path
 
 By default, this package will look for models in the `app/Models` directory. If you want to register models in a custom path, you can do it in your `AppServiceProvider.php`
 
