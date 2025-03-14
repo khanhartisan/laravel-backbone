@@ -861,7 +861,7 @@ class PostStatusScope implements Scope
 }
 ```
 
-Finally, let's add the query scope to the `indexQueryScopes` method in the controller.
+Finally, let's add the query scope to the `indexQueryScopes` method in the controller. This method should return an array of query scopes with the key being the identifier of the scope and the value being the scope instance.
 
 ```php
 <?php
@@ -879,7 +879,9 @@ class PostController extends JsonController
     public function indexQueryScopes(Request $request): array
     {
         return [
-            new PostStatusScope(),
+            
+            // Here we use the class name as the identifier
+            get_class($postStatusScope = new PostStatusScope()) => $postStatusScope,
         ];
     }
 }
@@ -904,7 +906,7 @@ class PostController extends JsonController
     public function indexQueryScopes(Request $request): array
     {
         return [
-            function (Builder $query, Post $postModel) {
+            'post-status-scope' => function (Builder $query, Post $postModel) {
 
                 // Get the status from the request
                 if (!$status = request()->query('status')
