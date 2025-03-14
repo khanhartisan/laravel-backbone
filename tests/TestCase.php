@@ -62,4 +62,9 @@ abstract class TestCase extends \Orchestra\Testbench\TestCase
             $config->set('database.redis.cache.password', null);
         });
     }
+
+    public function seed($class = 'DatabaseSeeder')
+    {
+        // Implement seed() method.
+    }
 }

@@ -102,6 +102,7 @@ class Repository implements RepositoryInterface
         /** @var Builder $eloquentQuery */
         $eloquentQuery = call_user_func([$this->modelClass(), 'query']);
 
+        /** @var Model */
         return tap($eloquentQuery->newModelInstance(), fn ($instance) => $this->save($instance, $data, $creatingVisitors, $createdVisitors));
     }
 
@@ -170,7 +171,9 @@ class Repository implements RepositoryInterface
                 $this->validateModelClass($secondParamType, 'Scope #'.$index.' second parameter type must be '.Model::class.' or subclass of it.');
 
                 // Apply closure scope
-                $scope($query, $query->getModel());
+                $query->withGlobalScope($index, function (Builder $query) use ($scope) {
+                    $scope($query, $query->getModel());
+                });
                 continue;
 
             }
@@ -180,7 +183,8 @@ class Repository implements RepositoryInterface
                 throw new \InvalidArgumentException('Scope #'.$index.' is not an instance of Scope.');
             }
 
-            $scope->apply($query, $query->getModel());
+            // Apply scope
+            $query->withGlobalScope($index, $scope);
         }
     }
 
