@@ -1,5 +1,7 @@
 **khanhartisan/laravel-backbone** is a PHP package that provides a structured approach to writing backend code in Laravel. By establishing a set of best practices and optimized conventions, it helps developers build cleaner, more maintainable, and scalable applications with minimal effort.
 
+I'm open to bug reports, feature requests, and contributions. Feel free to create an issue or pull request.
+
 # Table of Contents
 
 - [Installation](#installation)
