@@ -39,7 +39,7 @@
   - [Registering Models in a custom path](#registering-models-in-a-custom-path)
 - [Relation Cascade](#relation-cascade)
   - [Using Relation Cascade](#using-relation-cascade)
-- [Counter](#counter)
+  - [Registering ShouldCascade Models in a custom path](#registering-shouldcascade-models-in-a-custom-path)
 - [Repository](#repository)
 
 # Installation
@@ -1441,7 +1441,7 @@ class AppServiceProvider extends ServiceProvider
 
 The traditional approach to handling the cascade operation is to use the foreign key constraints with the `ON DELETE CASCADE` option. However, this approach has some limitations, such as the inability to handle the `softDeletes` and the lack of flexibility.
 
-But that may lead to some performance issues, especially when you have a lot of records to delete. Let's say you have a post with a few millions of comments, and you want to delete the post. The `ON DELETE CASCADE` option will delete all the comments in one query, which can be slow. And some databases even don't support foreign key constraints.
+And that may lead to some performance issues, especially when you have a lot of records to delete. Let's say you have a post with a few millions of comments, and you want to delete the post. The `ON DELETE CASCADE` option will delete all the comments in one query, which can be slow. And some databases even don't support foreign key constraints.
 
 This package provides a more flexible approach to handle the cascade operation by using the `Relation Cascade`. It works by performing the cascade operation in the application layer, and in chunks to avoid performance issues.
 
@@ -1472,7 +1472,7 @@ return new class extends Migration
             // SoftDeletes is required
             $table->softDeletes();
             
-            // Add the cascade column
+            // Add the cascade columns
             $table->cascades();
             
             // We recommend you to add this index to improve the performance
@@ -1538,6 +1538,14 @@ class Post extends Model implements ShouldCascade
         ];
     }
     
+    // Optionally, you can define this method to automatically force-delete the model
+    // when all the relations are deleted.
+    // By default, this method returns false.
+    public function autoForceDeleteWhenAllRelationsAreDeleted(): bool
+    {
+        return false;
+    }
+    
     public function comments(): HasMany
     {
         return $this->hasMany(Comment::class);
@@ -1545,7 +1553,7 @@ class Post extends Model implements ShouldCascade
 }
 ```
 
-Finally, you need to register two jobs to handle the cascade operation in the background.
+Finally, you need to schedule two jobs to handle the cascade operation in the background.
 
 ```php
 <?php
@@ -1562,3 +1570,218 @@ Schedule::job(new CascadeRestore($recordsLimit, $chunkSize))->everyMinute();
 ```
 
 Now, when you delete a post, all the comments will be deleted in the background. And when you restore a post, all the comments will be restored.
+
+### Registering ShouldCascade Models in a custom path
+
+By default, this package will look for models in the `app/Models` directory. If you want to register models in a custom path, you can do it in your `AppServiceProvider.php`
+
+```php
+<?php
+
+namespace App\Providers;
+
+// ...
+use KhanhArtisan\LaravelBackbone\RelationCascade\RelationCascadeManager;
+
+class AppServiceProvider extends ServiceProvider
+{
+    public function boot(): void
+    {
+        // ...
+        
+        $this->app->make(RelationCascadeManager::class)
+            ->registerModelsFrom(
+                // The first parameter is the namespace prefix of the models
+                $this->app->getNamespace().'CustomModels', // App\CustomerModels
+                
+                // The second parameter is the path to the models
+                app_path('CustomModels');
+            );
+    }
+}
+```
+
+# Repository
+
+The Repository pattern is a design pattern that abstracts the data access logic from the business logic.
+
+Behind the scenes, the [Resource Controller](#resource-controller) above uses the default Repository to handle the data access logic.
+
+However, if you want to customize the Repository, you can create your own Repository class by implementing the `RepositoryInterface`.
+
+Let's create a new Repository class for the `Post` model.
+
+```php
+<?php
+
+namespace App\Repositories;
+
+use App\Models\Post;
+use KhanhArtisan\LaravelBackbone\Eloquent\Repository;
+use KhanhArtisan\LaravelBackbone\Eloquent\RepositoryInterface;
+
+class PostRepository extends Repository implements RepositoryInterface
+{
+    public function __construct() 
+    {
+        parent::__construct(Post::class);
+    }
+    
+    // Check the RepositoryInterface for the available methods to override
+}
+```
+
+By extending the default Repository class, you already implemented the `RepositoryInterface` and you can use the `PostRepository` class in the [Resource Controller](#resource-controller) above like so:
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+// ...
+use App\Repositories\PostRepository;
+use KhanhArtisan\LaravelBackbone\Eloquent\RepositoryInterface;
+
+class PostController extends JsonController
+{
+    // ...
+
+    protected function repository(): RepositoryInterface
+    {
+        return $this->repository ?? $this->repository = new PostRepository();
+    }
+}
+```
+
+[//]: # (## Counter)
+
+[//]: # ()
+[//]: # (When I build my applications, I often need to count the number of views for a post, a product, or for the whole website. And I found that it's not easy to handle the counting operation in a scalable way.)
+
+[//]: # ()
+[//]: # (Imagine you have a blog with millions of visitors daily, and you want to count the number of views for each post as well as for the whole website. The simple approach is to increment the counter in the database every time a visitor views the post. However, this approach can be slow and can lead to performance issues.)
+
+[//]: # ()
+[//]: # (This package provides a more scalable approach to handle the counting operation, called the **Counter**. It works by storing the counting data in the cache and then periodically updating the database in the background.)
+
+[//]: # ()
+[//]: # (### Using Counter)
+
+[//]: # ()
+[//]: # (Currently, the Counter feature only support Redis as the cache driver. Make sure you have Redis installed and configured in your Laravel application.)
+
+[//]: # ()
+[//]: # (First, let's publish the database migration file.)
+
+[//]: # ()
+[//]: # (```bash)
+
+[//]: # (php artisan vendor:publish --tag=laravel-backbone-counter-migrations)
+
+[//]: # (```)
+
+[//]: # ()
+[//]: # (Then, run the migration to create the `counter` table.)
+
+[//]: # ()
+[//]: # (```bash)
+
+[//]: # (php artisan migrate)
+
+[//]: # (```)
+
+[//]: # ()
+[//]: # (Optionally, you can publish the configuration file if you want to customize the configuration. By default, the counter will use Redis from "cache" connection configured in your Laravel application. If you are happy with the default configuration, you can skip this step.)
+
+[//]: # ()
+[//]: # (```bash)
+
+[//]: # (php artisan vendor:publish --tag=laravel-backbone-counter-config)
+
+[//]: # (```)
+
+[//]: # ()
+[//]: # (Now in your application, you can use the `Counter` facade to increment the counter. Let's get back to the sample PostController above, and we will increment the view counter every time the post is viewed.)
+
+[//]: # ()
+[//]: # (```php)
+
+[//]: # (<?php)
+
+[//]: # ()
+[//]: # (namespace App\Http\Controllers;)
+
+[//]: # ()
+[//]: # (use App\Models\Post;)
+
+[//]: # (use KhanhArtisan\LaravelBackbone\Support\Facades\Counter\Recorder;)
+
+[//]: # (use KhanhArtisan\LaravelBackbone\Contracts\Counter\Interval;)
+
+[//]: # ()
+[//]: # (class PostController extends JsonController)
+
+[//]: # ({)
+
+[//]: # (    // ...)
+
+[//]: # (    )
+[//]: # (    public function show&#40;Request $request, Post $post&#41;)
+
+[//]: # (    {)
+
+[//]: # (        // Increment the view counter)
+
+[//]: # (        Recorder::record&#40;)
+
+[//]: # (            'post-views', // The "partition" key, you can choose your own key)
+
+[//]: # (            Interval::ONE_MINUTE, // How frequent the data should be updated in the database)
+
+[//]: # (            $post->id // The "reference" key, here we use the post id)
+
+[//]: # (            1, // The increment value, default is 1)
+
+[//]: # (        &#41;;)
+
+[//]: # (        )
+[//]: # (        return $this->jsonShow&#40;$request, $post&#41;;)
+
+[//]: # (    })
+
+[//]: # (})
+
+[//]: # (```)
+
+[//]: # ()
+[//]: # (Below is the list of available intervals:)
+
+[//]: # ()
+[//]: # (| Interval                  | Description            |)
+
+[//]: # (|---------------------------|------------------------|)
+
+[//]: # (| Interval::ONE_MINUTE      | Every minute           |)
+
+[//]: # (| Interval::FIVE_MINUTES    | Every five minutes     |)
+
+[//]: # (| Interval::TEN_MINUTES     | Every ten minutes      |)
+
+[//]: # (| Interval::FIFTEEN_MINUTES | Every fifteen minutes  |)
+
+[//]: # (| Interval::THIRTY_MINUTES  | Every thirty minutes   |)
+
+[//]: # (| Interval::HOURLY          | Every hour             |)
+
+[//]: # (| Interval::DAILY           | Every day              |)
+
+[//]: # ()
+[//]: # (The greater the interval, the less frequent the data will be updated in the database. You can choose the interval that best suits your application.)
+
+[//]: # ()
+[//]: # (Finally, you need to schedule a job to import data from the cache to the database in the background.)
+
+[//]: # ()
+[//]: # (```php)
+
+[//]: # (```)
