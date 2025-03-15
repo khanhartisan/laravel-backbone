@@ -132,7 +132,7 @@ Once the `show` method is implemented, and if you defined the [route](#route), y
 
 ### Visiting the Resource
 
-Before returning the resource, you can visit the Eloquent model instance by implementing the `showModelVisitors` method in the controller.
+Before returning the resource, you can visit the Eloquent model instance by implementing the `showResourceVisitors` method in the controller.
 
 First, let's create a new visitor class that implements the `ModelVisitorInterface` interface like below:
 
@@ -180,7 +180,7 @@ class PostController extends JsonController
 {
     // ...
     
-    protected function showModelVisitors(Request $request): array
+    protected function showResourceVisitors(Request $request): array
     {
         return [
             new PostVisitor(),
@@ -189,7 +189,7 @@ class PostController extends JsonController
 }
 ```
 
-Additionally, you can use a closure to visit the model directly in the `showModelVisitors` method. The closure must accept one parameter: the eloquent model instance.
+Additionally, you can use a closure to visit the model directly in the `showResourceVisitors` method. The closure must accept one parameter: the eloquent model instance.
 
 ```php
 <?php
@@ -203,7 +203,7 @@ class PostController extends JsonController
 {
     // ...
     
-    protected function showModelVisitors(Request $request): array
+    protected function showResourceVisitors(Request $request): array
     {
         return [
             fn (Post $post) => $post->title = strtoupper($post->title),
