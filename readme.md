@@ -135,7 +135,7 @@ Once the `show` method is implemented, and if you defined the [route](#route), y
 
 Before returning the resource, you can visit the Eloquent model instance by implementing the `showResourceVisitors` method in the controller.
 
-First, let's create a new visitor class that implements the `ModelVisitorInterface` interface like below:
+First, let's create a new visitor class that implements the `ResourceVisitorInterface` interface like below:
 
 ```php
 <?php
@@ -144,8 +144,9 @@ namespace App\Models\Visitors;
 
 use App\Models\Post;
 use Illuminate\Database\Eloquent\Model;
+use KhanhArtisan\LaravelBackbone\Eloquent\ResourceVisitorInterface;
 
-class PostVisitor implements ModelVisitorInterface
+class PostVisitor implements ResourceVisitorInterface
 {
     /**
      * Handle an eloquent model
