@@ -1073,13 +1073,12 @@ namespace App\Http\Controllers;
 
 // ...
 use App\Http\Resources\PostCollection;
-use Illuminate\Http\Request;
 
 class PostController extends JsonController
 {
     // ...
     
-    protected function resourceCollectionClass(Request $request): string
+    protected function resourceCollectionClass(): string
     {
         return PostCollection::class;
     }
