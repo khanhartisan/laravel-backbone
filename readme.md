@@ -226,13 +226,20 @@ namespace App\Http\Controllers;
 // ...
 use App\Models\Post;
 use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Model;
 
 class PostController extends JsonController
 {
     // ...
     
-    protected function showAdditional(Request $request, Post $post): array
+    protected function showAdditional(Request $request, Model $resource): array
     {
+        // Because php doesn't support generic types,
+        // so the abstract controller JsonController typed the $resource parameter as Model.
+        // But here we know that the resource is a Post instance
+        /** @var Post $post */
+        $post = $resource;
+    
         return [
             'custom_key' => 'custom_value',
             'meta' => [
@@ -443,14 +450,21 @@ namespace App\Http\Controllers;
 
 // ...
 use App\Models\Post;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 
 class PostController extends JsonController
 {
     // ...
     
-    protected function storeAdditional(Request $request, Post $post): array
+    protected function storeAdditional(Request $request, Model $resource): array
     {
+        // Because php doesn't support generic types,
+        // so the abstract controller JsonController typed the $resource parameter as Model.
+        // But here we know that the resource is a Post instance
+        /** @var Post $post */
+        $post = $resource;
+        
         return [
             'custom_key' => 'custom_value',
             'meta' => [
@@ -645,13 +659,20 @@ namespace App\Http\Controllers;
 
 // ...
 use App\Models\Post;
+use Illuminate\Database\Eloquent\Model;
 
 class PostController extends JsonController
 {
     // ...
     
-    protected function updateAdditional(Request $request, Post $post): array
+    protected function updateAdditional(Request $request, Model $resource): array
     {
+        // Because php doesn't support generic types,
+        // so the abstract controller JsonController typed the $resource parameter as Model.
+        // But here we know that the resource is a Post instance
+        /** @var Post $post */
+        $post = $resource;
+        
         return [
             'custom_key' => 'custom_value',
             'meta' => [
@@ -779,14 +800,21 @@ namespace App\Http\Controllers;
 
 // ...
 use App\Models\Post;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 
 class PostController extends JsonController
 {
     // ...
     
-    protected function destroyAdditional(Request $request, Post $post): array
+    protected function destroyAdditional(Request $request, Model $resource): array
     {
+        // Because php doesn't support generic types,
+        // so the abstract controller JsonController typed the $resource parameter as Model.
+        // But here we know that the resource is a Post instance
+        /** @var Post $post */
+        $post = $resource;
+        
         return [
             'custom_key' => 'custom_value',
             'meta' => [
