@@ -1295,23 +1295,29 @@ You can also use the Laravel's [shallow nesting](https://laravel.com/docs/contro
 
 This package provides a simple way to test your CRUD API using the `JsonApiTest` class.
 
-Let's take a look at the example below:
+First, let's create a test normally like you would in Laravel.
+
+```bash
+php artisan make:test PostApiTest
+```
+
+Then, implement the basic CRUD test in the test class.
 
 ```php
 <?php
 
-namespace KhanhArtisan\LaravelBackbone\Tests;
+namespace Tests\Feature;
 
+// ...
 use App\Models\Post;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use KhanhArtisan\LaravelBackbone\Testing\JsonApiTest;
 use KhanhArtisan\LaravelBackbone\Testing\JsonCrudTestData;
 
-class JsonControllerTest extends TestCase
+class PostApiTest extends TestCase
 {
-    use RefreshDatabase;
+    // ...
 
     public function test_basic_crud()
     {
