@@ -373,13 +373,20 @@ namespace App\Http\Controllers;
 // ...
 use App\Http\Requests\StorePostRequest;
 use App\Http\Resources\PostResource;
+use Illuminate\Http\Request;
 
 class PostController extends JsonController
 {
     // ...
     
-    protected function storeWithTransaction(StorePostRequest $request): bool
+    protected function storeWithTransaction(Request $request): bool
     {
+        // Because php doesn't support generic types,
+        // so the abstract controller JsonController typed the $request parameter as Request.
+        // But here we know that the resource is a StorePostRequest instance (corresponding to the request class you created)
+        /** @var StorePostRequest $storePostRequest */
+        $storePostRequest = $request;
+
         return true; // default is true
     }
 }
@@ -582,13 +589,20 @@ namespace App\Http\Controllers;
 // ...
 use App\Http\Requests\UpdatePostRequest;
 use App\Http\Resources\PostResource;
+use Illuminate\Http\Request;
 
 class PostController extends JsonController
 {
     // ...
     
-    protected function updateWithTransaction(UpdatePostRequest $request): bool
+    protected function updateWithTransaction(Request $request): bool
     {
+        // Because php doesn't support generic types,
+        // so the abstract controller JsonController typed the $request parameter as Request.
+        // But here we know that the resource is a UpdatePostRequest instance (corresponding to the request class you created)
+        /** @var UpdatePostRequest $updatePostRequest */
+        $updatePostRequest = $request;
+
         return true; // default is true
     }
 }
@@ -704,7 +718,7 @@ class PostController extends JsonController
     
     public function destroy(Request $request, Post $post): PostResource
     {
-        $this->jsonDestroy($request, $post);
+        return $this->jsonDestroy($request, $post);
     }
 }
 ```
