@@ -1106,7 +1106,7 @@ use KhanhArtisan\LaravelBackbone\Eloquent\GetQueryExecutorInterface;
 
 class TestQueryExecutor implements GetQueryExecutorInterface
 {
-    public function execute(Builder $query): Builder
+    public function execute(Builder $query): GetData
     {
         return new GetData(
             $query->get(),
