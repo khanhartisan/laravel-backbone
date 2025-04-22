@@ -40,7 +40,7 @@ class StoreData implements ShouldQueue
 
         // Scan from the given time
         // until timeout or reached the current time
-        while ($scanFrom->gte(now()->subSeconds($intervalSeconds))) {
+        while ($scanFrom->lt(now())) {
 
             // Timeout check
             if ($this->isTimedOut($executedAt)) {
@@ -96,7 +96,7 @@ class StoreData implements ShouldQueue
                 $scanFromTimestamp
             );
 
-            // Increment the scanFrom
+            // Update the scan from time by +1 interval
             $scanFrom = $scanFrom->addSeconds($intervalSeconds);
         }
     }
