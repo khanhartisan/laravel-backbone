@@ -2,25 +2,18 @@
 
 namespace KhanhArtisan\LaravelBackbone\RelationCascade\Jobs;
 
-use App\Models\Manufacturer;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Database\Eloquent\Builder;
-use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
+use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
-use KhanhArtisan\LaravelBackbone\RelationCascade\CascadeStatus;
 use KhanhArtisan\LaravelBackbone\RelationCascade\ShouldCascade;
 use KhanhArtisan\LaravelBackbone\RelationCascade\CascadeDetails;
 use KhanhArtisan\LaravelBackbone\RelationCascade\RelationCascadeManager;
-use KhanhArtisan\LaravelBackbone\ModelListener\ModelListenerManager;
 
 abstract class Cascade implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Queueable;
 
     /**
      * Create a new job instance.
