@@ -364,7 +364,7 @@ class CounterTest extends TestCase
     {
         Artisan::call('migrate:refresh', [
             '--database' => $database,
-            '--path' => '../../../../database/migrations/2023_07_01_164322_create_counter_table.php'
+            '--path' => '../database/migrations/2023_07_01_164322_create_counter_table.php'
         ]);
     }
 }
