@@ -355,12 +355,53 @@ class DatabaseStore implements Store
             $query->where('partition', $partitionKey);
         }
 
-        if ($limit) {
-            $query->take($limit);
-        }
-
         try {
-            $query->delete();
+
+            // Delete limit
+            if ($limit) {
+
+                // Mysql
+                if ($this->driver === 'mysql') {
+                    $query->take($limit);
+                    $query->delete();
+                }
+
+                // Pgsql
+                if ($this->driver === 'pgsql') {
+
+                    $chunkSize = 1000;
+                    while ($limit > 0) {
+
+                        // Get ids to delete
+                        $ids = $query
+                            ->select('id')
+                            ->take(min($limit, $chunkSize))
+                            ->get()
+                            ->pluck('id');
+
+                        // Stop if no ids
+                        if (!$idsCount = $ids->count()) {
+                            break;
+                        }
+
+                        // Delete by ids
+                        $this
+                            ->connection
+                            ->table($this->table)
+                            ->whereIn('id', $ids)
+                            ->delete();
+
+                        // Decrease limit
+                        $limit -= $idsCount;
+                    }
+                }
+
+            }
+            // Delete without limit
+            else {
+                $query->delete();
+            }
+
         } catch (\Exception $e) {
             return false;
         }

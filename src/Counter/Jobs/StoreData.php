@@ -11,11 +11,13 @@ use KhanhArtisan\LaravelBackbone\Contracts\Counter\Recorder;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\ShardKeys;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\Store;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\TimeHelper;
+use KhanhArtisan\LaravelBackbone\Counter\Jobs\Traits\GetCounterRecorder;
+use KhanhArtisan\LaravelBackbone\Counter\Jobs\Traits\GetCounterStore;
 
-// TODO: Not tested yet
 class StoreData implements ShouldQueue
 {
     use Queueable;
+    use GetCounterRecorder, GetCounterStore;
 
     public int $timeout = 60;
 
@@ -56,36 +58,38 @@ class StoreData implements ShouldQueue
 
             // Loop through all shard keys
             // to collect shard records
-            foreach (new ShardKeys($maxShardKeyLength) as $shardKey) {
+            for ($i = 1; $i <= $maxShardKeyLength; $i++) {
+                foreach (new ShardKeys($i) as $shardKey) {
 
-                // Get shard records
-                $shardRecords = $recorder->getShardRecords(
-                    $this->partitionKey,
-                    $this->interval,
-                    $scanFromTimestamp,
-                    $shardKey
-                );
-
-                // Perform upsert
-                if ($shardRecords) {
-
-                    // Upsert the records
-                    if (!$store->upsert($shardRecords)) {
-                        throw new \Exception('Failed to upsert counter records');
-                    }
-
-                    // If upsert succeeds, flush the records in this shard
-                    $recorder->flush(
+                    // Get shard records
+                    $shardRecords = $recorder->getShardRecords(
                         $this->partitionKey,
                         $this->interval,
                         $scanFromTimestamp,
                         $shardKey
                     );
-                }
 
-                // Timeout check
-                if ($this->isTimedOut($executedAt)) {
-                    return;
+                    // Perform upsert
+                    if ($shardRecords) {
+
+                        // Upsert the records
+                        if (!$store->upsert($shardRecords)) {
+                            throw new \Exception('Failed to upsert counter records');
+                        }
+
+                        // If upsert succeeds, flush the records in this shard
+                        $recorder->flush(
+                            $this->partitionKey,
+                            $this->interval,
+                            $scanFromTimestamp,
+                            $shardKey
+                        );
+                    }
+
+                    // Timeout check
+                    if ($this->isTimedOut($executedAt)) {
+                        return;
+                    }
                 }
             }
 
@@ -99,24 +103,6 @@ class StoreData implements ShouldQueue
             // Update the scan from time by +1 interval
             $scanFrom = $scanFrom->addSeconds($intervalSeconds);
         }
-    }
-
-    /**
-     * @throws BindingResolutionException
-     * @return Recorder
-     */
-    protected function getCounterRecorder()
-    {
-        return app()->make(Recorder::class);
-    }
-
-    /**
-     * @throws BindingResolutionException
-     * @return Store
-     */
-    protected function getCounterStore()
-    {
-        return app()->make(Store::class);
     }
 
     /**

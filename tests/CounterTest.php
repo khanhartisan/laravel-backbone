@@ -10,8 +10,11 @@ use Illuminate\Support\Str;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\Interval;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\Record;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\Recorder;
+use KhanhArtisan\LaravelBackbone\Contracts\Counter\ShardKey;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\Store;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\TimeHelper;
+use KhanhArtisan\LaravelBackbone\Counter\Jobs\ClearData;
+use KhanhArtisan\LaravelBackbone\Counter\Jobs\StoreData;
 
 class CounterTest extends TestCase
 {
@@ -40,6 +43,119 @@ class CounterTest extends TestCase
         $this->refreshDatabase('pgsql');
         $config->set('counter.stores.database.connection', 'pgsql');
         $this->_testStore('database');
+    }
+
+    public function test_jobs_redis_recorder_mysql_store()
+    {
+        /** @var Repository $config */
+        $config = app()->make('config');
+        $this->refreshDatabase('mysql');
+        $config->set('counter.stores.database.connection', 'mysql');
+
+        $this->_testJobs();
+    }
+
+    protected function _testJobs(string $recorderDriver = 'redis', string $storeDriver = 'database')
+    {
+        $recorder = $this->makeRecorder($recorderDriver);
+        $store = $this->makeStore($storeDriver);
+
+        $partitionKey = Str::random();
+        $interval = Interval::ONE_MINUTE;
+        $intervalSeconds = TimeHelper::intervalToSeconds($interval);
+        $recordStartTime = now()->subMinutes(15);
+
+        $recordFrom = $recordStartTime->clone();
+        $recordedCount = 0;
+        $maxRecordedCount = 1000;
+        while ($recordFrom->lt(now())) {
+
+            // Keep recording until max recorded count reached or shard key length is 2
+            while ($recorder->getMaxShardKeyLength(
+                    $partitionKey,
+                    $interval,
+                    $recordFrom->getTimestamp()
+                ) < 2
+            ) {
+
+                // Throw exception if max recorded count reached
+                if ($recordedCount >= $maxRecordedCount) {
+                    throw new \Exception('Max recorded count reached');
+                }
+
+                // Record a random reference
+                $recorder->record(
+                    $partitionKey,
+                    $interval,
+                    $ref = 'ref-'.Str::random(10),
+                    rand(1, 9999),
+                    1,
+                    $recordFrom->getTimestamp()
+                );
+                $recordedCount++;
+            }
+
+            // Confirm the shard key length is 2
+            $this->assertEquals(2, $recorder->getMaxShardKeyLength(
+                $partitionKey,
+                $interval,
+                $recordFrom->getTimestamp()
+            ));
+
+            // Increase the time by the interval seconds
+            $recordFrom->addSeconds($intervalSeconds);
+        }
+
+        // Confirm recorded
+        $this->assertTrue($recordedCount >= 15);
+
+        // Confirm store is empty
+        $scanFrom = $recordStartTime->clone();
+        while ($scanFrom->lt(now())) {
+            $this->assertEquals(0, count($store->getRecordsByTime($partitionKey, $interval, $scanFrom->getTimestamp())));
+            $scanFrom->addSeconds($intervalSeconds);
+        }
+
+        // Run the store data job
+        StoreData::dispatchSync($partitionKey, $interval, now()->subMinutes(16));
+
+        // Confirm stored successfully
+        $scanFrom = $recordStartTime->clone();
+        $storedCount = 0;
+        while ($scanFrom->lt(now())) {
+
+            // Confirm stored successfully
+            $records = $store->getRecordsByTime($partitionKey, $interval, $scanFrom->getTimestamp());
+            $count = count($records);
+            $this->assertTrue($count > 0);
+            $storedCount += $count;
+
+            // Confirm max shard key length is reset to 0
+            $this->assertEquals(0, $recorder->getMaxShardKeyLength(
+                $partitionKey,
+                $interval,
+                $scanFrom->getTimestamp()
+            ));
+
+            // Increase the scan time by the interval seconds
+            $scanFrom->addSeconds($intervalSeconds);
+        }
+
+        // Confirm stored count equal to recorded count
+        $this->assertEquals($recordedCount, $storedCount);
+
+        // Run the clear data job
+        $pruneFrom = $recordStartTime->clone();
+        while ($pruneFrom ->lt(now())) {
+            $this->assertNotEmpty($store->getRecordsByTime($partitionKey, $interval, $pruneFrom->getTimestamp()));
+
+            ClearData::dispatchSync($interval, $pruneFrom->getTimestamp(), $partitionKey);
+
+            // Confirm pruned successfully
+            $this->assertEmpty($store->getRecordsByTime($partitionKey, $interval, $pruneFrom->getTimestamp()));
+
+            $pruneFrom->addSeconds($intervalSeconds);
+        }
     }
 
     protected function _testRecorder(string $driver)
