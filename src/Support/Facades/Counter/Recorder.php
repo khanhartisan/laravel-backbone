@@ -13,7 +13,7 @@ use KhanhArtisan\LaravelBackbone\Contracts\Counter\ShardKey;
  * @method static int getMaxShardKeyLength(string $partitionKey, Interval $interval, int $time)
  * @method static int getShardSize(string $partitionKey, Interval $interval, int $time, ShardKey $shardKey)
  * @method static array getShardRecords(string $partitionKey, Interval $interval, int $time, ShardKey $shardKey)
- * @method static bool flush(string $partitionKey, ?Interval $interval, ?int $time = null, ?ShardKey $shardKey = null)
+ * @method static bool flush(string $partitionKey, ?Interval $interval = null, ?int $time = null, ?ShardKey $shardKey = null)
  */
 class Recorder extends Facade
 {
