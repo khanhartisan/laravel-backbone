@@ -17,7 +17,7 @@ use KhanhArtisan\LaravelBackbone\Contracts\Counter\ShardKey;
  */
 class Recorder extends Facade
 {
-    public static function getFacadeAccessor()
+    public static function getFacadeAccessor(): string
     {
         return \KhanhArtisan\LaravelBackbone\Contracts\Counter\Recorder::class;
     }
