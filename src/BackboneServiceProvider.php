@@ -103,7 +103,7 @@ class BackboneServiceProvider extends ServiceProvider
 
         // Publish migrations
         $this->publishes([
-            __DIR__.'/../database/migrations/2023_07_01_164322_create_counter_table.php' => database_path('migrations')
+            __DIR__.'/../database/migrations/2023_07_01_164322_create_counter_table.php' => database_path('migrations/2023_07_01_164322_create_counter_table.php')
         ], 'laravel-backbone-counter-migration');
 
         $this->app->singleton(Store::class, StoreManager::class);
