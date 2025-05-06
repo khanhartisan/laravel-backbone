@@ -15,9 +15,9 @@ interface Store
     public function upsert(Record|array $records): bool;
 
     /**
-     * Sync interval records.
-     * For example sync 5m -> 10m, 10m -> 1h, 1h -> daily...
-     * A record will only be synced once and never again.
+     * Roll-up interval records.
+     * For example, roll up from 5m -> 10m, 10m -> 1h, 1h -> daily...
+     * A record will only be executed once and never again.
      * Hint: Need a dedicated flag for this.
      *
      * @param Interval $fromInterval
@@ -26,7 +26,7 @@ interface Store
      * @param null|int $limit
      * @return array Array of synced records
      */
-    public function syncIntervalRecords(Interval $fromInterval, Interval|array $toInterval, ?string $partitionKey = null, ?int $limit = null): array;
+    public function rollupIntervalRecords(Interval $fromInterval, Interval|array $toInterval, ?string $partitionKey = null, ?int $limit = null): array;
 
     /**
      * Get records and execute only once for each record.

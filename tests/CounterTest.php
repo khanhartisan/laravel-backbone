@@ -362,7 +362,7 @@ class CounterTest extends TestCase
             rand(1, 9999)
         );
         $this->assertTrue($store->upsert($record1Previous));
-        $this->assertCount(4, $syncedRecords = $store->syncIntervalRecords(Interval::ONE_MINUTE, Interval::FIVE_MINUTES));
+        $this->assertCount(4, $store->rollupIntervalRecords(Interval::ONE_MINUTE, Interval::FIVE_MINUTES));
 
         // Test get records by time
         $this->assertCount(3, $recordsByTime = $store->getRecordsByTime($partitionKey, Interval::FIVE_MINUTES, TimeHelper::startTime(Interval::FIVE_MINUTES, $time)));

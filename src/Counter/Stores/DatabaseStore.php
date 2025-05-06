@@ -57,8 +57,9 @@ class DatabaseStore implements Store
 
     /**
      * @inheritDoc
+     * @throws \Throwable
      */
-    public function syncIntervalRecords(Interval $fromInterval,
+    public function rollupIntervalRecords(Interval $fromInterval,
                                         Interval|array $toInterval,
                                         ?string $partitionKey = null,
                                         ?int $limit = null): array
