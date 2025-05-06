@@ -2,6 +2,7 @@
 
 namespace KhanhArtisan\LaravelBackbone\Counter\Jobs;
 
+use Carbon\Carbon;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -14,7 +15,7 @@ class ClearData implements ShouldQueue
     use GetCounterStore;
 
     public function __construct(protected Interval $interval,
-                                protected int $olderThanTime,
+                                protected int|Carbon $olderThanTime,
                                 protected ?string $partitionKey,
                                 protected ?int $limit = null)
     {
@@ -28,7 +29,9 @@ class ClearData implements ShouldQueue
     {
         $this->getCounterStore()->prune(
             $this->interval,
-            $this->olderThanTime,
+            $this->olderThanTime instanceof Carbon
+                ? $this->olderThanTime->getTimestamp()
+                : $this->olderThanTime,
             $this->partitionKey,
             $this->limit
         );
