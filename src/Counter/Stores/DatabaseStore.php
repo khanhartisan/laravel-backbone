@@ -76,7 +76,7 @@ class DatabaseStore implements Store
             // Get list of records to sync
             $query = $connection
                 ->table($this->table)
-                ->where('is_synced', false)
+                ->where('is_rolled_up', false)
                 ->where('interval', $fromInterval->value)
                 ->where('time', '<', TimeHelper::startTime($fromInterval))
                 ->orderBy('time');
@@ -143,7 +143,7 @@ class DatabaseStore implements Store
                 ->table($this->table)
                 ->whereIn('id', $fromRecords->pluck('id')->toArray())
                 ->update([
-                    'is_synced' => true
+                    'is_rolled_up' => true
                 ]);
 
         });
