@@ -15,7 +15,7 @@ return [
 
     'stores' => [
         'database' => [
-            'connection' => env('COUNTER_STORE_DATABASE_CONNECTION', 'mysql'),
+            'connection' => env('COUNTER_STORE_DATABASE_CONNECTION', config('database.default')),
             'table' => env('COUNTER_STORE_DATABASE_TABLE', 'counter'),
         ]
     ]
