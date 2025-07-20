@@ -188,9 +188,28 @@ class RedisRecorder implements Recorder
                         }
                     }
                 }
+
+                // Clear shard max size
+                $this->redis->tags($tags)->forget($this->maxShardKeyLengthCacheKey());
+
+                return true;
             }
 
-            return $this->redis->tags($tags)->flush();
+            // Flushing by tag won't work in redis cluster mode
+            // So... we have no choice but to flush all keys one by one
+            // Get all shard references and forget all
+            $shardReferences = $this->getShardReferences($partitionKey, $interval, $time, $shardKey);
+            foreach ($shardReferences as $shardReference) {
+                $this->redis->tags($tags)->forget($shardReference);
+            }
+
+            // Forget shard size
+            $this->redis->tags($tags)->forget($this->shardSizeCacheKey());
+
+            // Forget shard references
+            $this->redis->tags($tags)->forget('references');
+
+            return true;
 
         } catch (\Exception $e) {
             if (env('APP_DEBUG')) {
