@@ -11,6 +11,7 @@ use KhanhArtisan\LaravelBackbone\Contracts\Counter\Interval;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\Record;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\Recorder;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\ShardKey;
+use KhanhArtisan\LaravelBackbone\Contracts\Counter\ShardKeys;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\Store;
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\TimeHelper;
 use KhanhArtisan\LaravelBackbone\Counter\Jobs\ClearData;
@@ -136,6 +137,16 @@ class CounterTest extends TestCase
                 $interval,
                 $scanFrom->getTimestamp()
             ));
+
+            // Confirm records are flushed
+            foreach (new ShardKeys() as $shardKey) {
+                $this->assertCount(0, $recorder->getShardRecords(
+                    $partitionKey,
+                    $interval,
+                    $scanFrom->getTimestamp(),
+                    $shardKey
+                ));
+            }
 
             // Increase the scan time by the interval seconds
             $scanFrom->addSeconds($intervalSeconds);
