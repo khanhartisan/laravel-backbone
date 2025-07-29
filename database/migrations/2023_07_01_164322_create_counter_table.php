@@ -27,7 +27,7 @@ return new class extends Migration
             $table->index(['interval', 'time']);
             $table->index(['is_rolled_up', 'interval', 'time']);
             $table->index(['partition', 'is_rolled_up', 'interval', 'time']);
-            $table->index(['partition', 'is_executed', 'interval', 'id']);
+            $table->index(['partition', 'is_executed', 'interval', 'time']);
         });
     }
 
