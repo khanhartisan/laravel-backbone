@@ -37,7 +37,7 @@ class DatabaseStore implements Store
                 collect($records)
                     ->map(function (Record $record) {
                         return [
-                            'id' => Str::ulid(),
+                            'id' => strtolower(Str::ulid()->toString()),
                             'partition' => $record->getPartitionKey(),
                             'interval' => $record->getInterval()->value,
                             'time' => $record->getTime(),
