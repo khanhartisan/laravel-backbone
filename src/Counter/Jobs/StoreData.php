@@ -2,6 +2,7 @@
 
 namespace KhanhArtisan\LaravelBackbone\Counter\Jobs;
 
+use Carbon\CarbonInterface;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -23,7 +24,7 @@ class StoreData implements ShouldQueue
 
     public function __construct(protected string $partitionKey,
                                 protected Interval $interval,
-                                protected ?Carbon $scanFrom = null)
+                                protected ?CarbonInterface $scanFrom = null)
     {
     }
 
