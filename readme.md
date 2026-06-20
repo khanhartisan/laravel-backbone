@@ -36,6 +36,12 @@
 - [Model Listeners](#model-listeners)
 - [Relation Cascade](#relation-cascade)
 - [Counter](#counter)
+  - [How It Works](#how-it-works)
+  - [Recording Events](#recording-events)
+  - [Querying Records](#querying-records)
+  - [Examples](#counter-examples)
+  - [Syncing to Application Tables](#syncing-to-application-tables)
+  - [Roll-up & Pruning](#roll-up--pruning)
 - [Testing](#testing)
 - [Artisan Commands](#artisan-commands)
 - [Contributing](#contributing)
@@ -779,7 +785,7 @@ $this->app->make(RelationCascadeManager::class)->registerModelsFrom(
 
 ## Counter
 
-The Counter subsystem records high-frequency events (page views, impressions, etc.) in Redis and periodically flushes aggregated data to the database. This avoids write amplification on hot rows during traffic spikes.
+The Counter subsystem records high-frequency events (page views, impressions, clicks, etc.) in Redis and periodically persists aggregated data to the database. This avoids write amplification on hot rows during traffic spikes while still giving you queryable historical metrics.
 
 > The default recorder driver requires **Redis**. Ensure Redis is configured as your cache (or counter) connection.
 
@@ -809,9 +815,40 @@ Default configuration (`config/counter.php`):
 | `stores.database.connection` | `COUNTER_STORE_DATABASE_CONNECTION` | default DB |
 | `stores.database.table` | `COUNTER_STORE_DATABASE_TABLE` | `counter` |
 
-### Recording events
+### How It Works
 
-Use the `Recorder` facade in your application code:
+Counter has two layers:
+
+| Layer | Facade | Role |
+|---|---|---|
+| **Recorder** | `Recorder` | Hot path — increments counts in Redis with minimal latency |
+| **Store** | `Store` | Cold path — durable storage in the `counter` table for querying and roll-ups |
+
+```
+Request → Recorder::record() → Redis (sharded by time bucket)
+                                      ↓
+                          StoreData job (scheduled)
+                                      ↓
+                          Store::upsert() → counter table
+                                      ↓
+                          Store::getRecord() / getRecordsByTime() / …
+```
+
+Counts are grouped into **time buckets** determined by the `Interval` you choose. Each bucket is identified by a normalized Unix timestamp (the bucket start time). Use `TimeHelper::startTime()` when you need to compute the bucket for a given moment:
+
+```php
+use KhanhArtisan\LaravelBackbone\Contracts\Counter\Interval;
+use KhanhArtisan\LaravelBackbone\Contracts\Counter\TimeHelper;
+
+$bucketStart = TimeHelper::startTime(Interval::HOURLY);           // current hour
+$bucketStart = TimeHelper::startTime(Interval::DAILY, strtotime('2024-06-01')); // start of that day
+```
+
+Data is only queryable from the **Store** after the `StoreData` job has flushed the corresponding Redis bucket. Schedule that job at or below your recording interval (see [Scheduling](#scheduling-background-jobs)).
+
+### Recording Events
+
+Use the `Recorder` facade on the write path:
 
 ```php
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\Interval;
@@ -832,49 +869,344 @@ public function show(Request $request, Post $post): PostResource
 
 | Parameter | Description |
 |---|---|
-| `partitionKey` | Logical grouping for related counters (e.g. `'post-views'`) |
-| `interval` | How often data is rolled up to the database |
-| `reference` | Entity identifier (e.g. post ID) |
+| `partitionKey` | Logical grouping for related counters (e.g. `'post-views'`, `'site-visits'`) |
+| `interval` | Time bucket granularity used for recording and querying |
+| `reference` | Entity identifier (e.g. post ID, user ID, `'global'`) |
 | `value` | Increment amount (default `1`) |
 | `shardSize` | Max references per Redis shard (default `1000`) |
 | `eventTime` | Unix timestamp override (default: now) |
 
-### Available intervals
+#### Available intervals
 
-| Constant | Roll-up period |
+| Constant | Bucket size |
 |---|---|
-| `Interval::ONE_MINUTE` | Every minute |
-| `Interval::FIVE_MINUTES` | Every 5 minutes |
-| `Interval::TEN_MINUTES` | Every 10 minutes |
-| `Interval::FIFTEEN_MINUTES` | Every 15 minutes |
-| `Interval::THIRTY_MINUTES` | Every 30 minutes |
-| `Interval::HOURLY` | Every hour |
-| `Interval::DAILY` | Every day |
-| `Interval::WEEKLY` | Every week |
-| `Interval::MONTHLY` | Every month |
-| `Interval::YEARLY` | Every year |
+| `Interval::ONE_MINUTE` | 1 minute |
+| `Interval::FIVE_MINUTES` | 5 minutes |
+| `Interval::TEN_MINUTES` | 10 minutes |
+| `Interval::FIFTEEN_MINUTES` | 15 minutes |
+| `Interval::THIRTY_MINUTES` | 30 minutes |
+| `Interval::HOURLY` | 1 hour |
+| `Interval::DAILY` | 1 day |
+| `Interval::WEEKLY` | 1 week |
+| `Interval::MONTHLY` | 1 month |
+| `Interval::YEARLY` | 1 year |
 
-Longer intervals reduce database write frequency. Choose based on how fresh your metrics need to be.
+Shorter intervals give fresher data but more rows and more frequent job runs. Longer intervals are better for archival metrics and dashboards that do not need minute-level precision.
 
-### Scheduling background jobs
+### Querying Records
 
-Flush Redis data to the database and prune old records via scheduled jobs:
+All read operations go through the `Store` facade against the persisted `counter` table:
+
+```php
+use KhanhArtisan\LaravelBackbone\Support\Facades\Counter\Store;
+```
+
+Each query returns `Record` instances with:
+
+| Method | Description |
+|---|---|
+| `getPartitionKey()` | Partition the record belongs to |
+| `getInterval()` | `Interval` enum for the bucket |
+| `getTime()` | Bucket start as Unix timestamp |
+| `getReference()` | Entity identifier |
+| `getValue()` | Count for that bucket |
+| `getStoreReference()` | ULID primary key in the `counter` table |
+
+#### `getRecord()` — single count for one entity in one bucket
+
+Fetch the count for a specific reference at a specific time bucket. Returns `null` if no record exists.
+
+```php
+use KhanhArtisan\LaravelBackbone\Contracts\Counter\Interval;
+use KhanhArtisan\LaravelBackbone\Contracts\Counter\TimeHelper;
+
+$views = Store::getRecord(
+    partitionKey: 'post-views',
+    interval: Interval::HOURLY,
+    time: TimeHelper::startTime(Interval::HOURLY),
+    reference: $post->id,
+);
+
+$count = $views?->getValue() ?? 0;
+```
+
+`time` is normalized automatically — you can pass `time()` or any timestamp within the bucket.
+
+#### `getRecordsByReference()` — time series for one entity
+
+Fetch all buckets for a single reference within a time range. Results are ordered by time ascending.
+
+```php
+$from = now()->subDays(7)->getTimestamp();
+$to = now()->getTimestamp();
+
+$records = Store::getRecordsByReference(
+    partitionKey: 'post-views',
+    interval: Interval::DAILY,
+    reference: $post->id,
+    fromTime: $from,
+    toTime: $to,
+);
+
+// Build chart data: [['date' => '2024-06-01', 'views' => 142], ...]
+$chartData = collect($records)->map(fn ($record) => [
+    'date' => date('Y-m-d', $record->getTime()),
+    'views' => $record->getValue(),
+]);
+```
+
+#### `getRecordsByTime()` — all entities in one bucket (leaderboard)
+
+Fetch every reference counted in a single time bucket, sorted by value. Useful for "top posts this hour" or "most active users today".
+
+```php
+$records = Store::getRecordsByTime(
+    partitionKey: 'post-views',
+    interval: Interval::HOURLY,
+    time: TimeHelper::startTime(Interval::HOURLY),
+    limit: 10,
+    sort: 'desc', // highest counts first
+);
+
+$postIds = collect($records)->map(fn ($record) => $record->getReference());
+$posts = Post::whereIn('id', $postIds)->get()->keyBy('id');
+
+$leaderboard = collect($records)->map(fn ($record) => [
+    'post' => $posts[$record->getReference()] ?? null,
+    'views' => $record->getValue(),
+]);
+```
+
+**Cursor pagination** — pass the previous page's last record ID as `cursorId` to fetch the next page without offset scans:
+
+```php
+$cursorId = null;
+
+do {
+    $page = Store::getRecordsByTime(
+        partitionKey: 'post-views',
+        interval: Interval::DAILY,
+        time: TimeHelper::startTime(Interval::DAILY, strtotime('2024-06-01')),
+        limit: 50,
+        sort: 'desc',
+        cursorId: $cursorId,
+    );
+
+    foreach ($page as $record) {
+        // process $record
+    }
+
+    $cursorId = $page ? end($page)->getStoreReference() : null;
+} while (count($page) === 50);
+```
+
+#### Store API reference
+
+| Method | Purpose |
+|---|---|
+| `getRecord()` | Single count for one reference in one bucket |
+| `getRecordsByReference()` | Time series for one reference across a range |
+| `getRecordsByTime()` | All references in one bucket, with optional cursor pagination |
+| `getRecordsAndExecuteOnce()` | Fetch unprocessed records and mark them executed (for syncing) |
+| `rollupIntervalRecords()` | Aggregate finer intervals into coarser ones |
+| `upsert()` | Manually write or increment records |
+| `delete()` | Delete records by store ULID |
+| `prune()` | Delete records older than a given time |
+
+### Counter Examples
+
+#### Display view count in a JSON API response
+
+```php
+use KhanhArtisan\LaravelBackbone\Contracts\Counter\Interval;
+use KhanhArtisan\LaravelBackbone\Contracts\Counter\TimeHelper;
+use KhanhArtisan\LaravelBackbone\Support\Facades\Counter\Recorder;
+use KhanhArtisan\LaravelBackbone\Support\Facades\Counter\Store;
+
+public function show(Request $request, Post $post): PostResource
+{
+    Recorder::record('post-views', Interval::ONE_MINUTE, $post->id);
+
+    // Total views today (persisted counts only)
+    $today = Store::getRecord(
+        'post-views',
+        Interval::DAILY,
+        TimeHelper::startTime(Interval::DAILY),
+        $post->id,
+    );
+
+    return $this->jsonShow($request, $post)
+        ->additional(['meta' => ['views_today' => $today?->getValue() ?? 0]]);
+}
+```
+
+#### Top 10 posts in the current hour
+
+```php
+$records = Store::getRecordsByTime(
+    partitionKey: 'post-views',
+    interval: Interval::HOURLY,
+    time: TimeHelper::startTime(Interval::HOURLY),
+    limit: 10,
+    sort: 'desc',
+);
+
+return Post::whereIn('id', collect($records)->map->getReference())
+    ->get()
+    ->sortByDesc(fn ($post) => collect($records)
+        ->first(fn ($r) => $r->getReference() === (string) $post->id)?->getValue() ?? 0
+    )
+    ->values();
+```
+
+#### 7-day view chart for a post
+
+```php
+$records = Store::getRecordsByReference(
+    partitionKey: 'post-views',
+    interval: Interval::DAILY,
+    reference: $post->id,
+    fromTime: now()->subDays(6)->startOfDay()->getTimestamp(),
+    toTime: now()->getTimestamp(),
+);
+
+return collect($records)->map(fn ($r) => [
+    'date' => date('Y-m-d', $r->getTime()),
+    'views' => $r->getValue(),
+]);
+```
+
+#### Aggregate total views across all time buckets for a post
+
+When you need a single total rather than per-bucket counts, sum the daily records:
+
+```php
+$records = Store::getRecordsByReference(
+    partitionKey: 'post-views',
+    interval: Interval::DAILY,
+    reference: $post->id,
+    fromTime: 0,
+    toTime: now()->getTimestamp(),
+);
+
+$totalViews = collect($records)->sum(fn ($r) => $r->getValue());
+```
+
+For live totals that include not-yet-flushed Redis data, keep a denormalized column on your model and sync via `getRecordsAndExecuteOnce()` (see below).
+
+### Syncing to Application Tables
+
+`getRecordsAndExecuteOnce()` fetches records that have not yet been processed, runs your callback, then marks them as executed so they are never returned again. Use this to copy counter values into your main tables (e.g. a `posts.views` column).
+
+```php
+use KhanhArtisan\LaravelBackbone\Contracts\Counter\Interval;
+use KhanhArtisan\LaravelBackbone\Support\Facades\Counter\Store;
+
+Store::getRecordsAndExecuteOnce(
+    partitionKey: 'post-views',
+    interval: Interval::ONE_MINUTE,
+    limit: 500,
+    executor: function (array $records, \Closure $markExecuted) {
+        foreach ($records as $record) {
+            Post::where('id', $record->getReference())
+                ->increment('views', $record->getValue());
+        }
+
+        // Mark all fetched records as executed — required
+        $markExecuted();
+    },
+);
+```
+
+Schedule this in a job alongside `StoreData`:
+
+```php
+Schedule::call(function () {
+    Store::getRecordsAndExecuteOnce('post-views', Interval::ONE_MINUTE, 1000, function ($records, $done) {
+        foreach ($records as $record) {
+            Post::where('id', $record->getReference())->increment('views', $record->getValue());
+        }
+        $done();
+    });
+})->everyMinute();
+```
+
+> Always call `$markExecuted()` (or `$done()`) inside the executor when processing succeeds. Records left unmarked will be returned on the next run.
+
+### Roll-up & Pruning
+
+#### Roll up to coarser intervals
+
+Combine fine-grained buckets into coarser ones (e.g. 1-minute → 5-minute → hourly). Rolled-up source records are flagged and will not be rolled up again.
+
+```php
+// Roll completed 1-minute buckets into 5-minute buckets
+Store::rollupIntervalRecords(
+    fromInterval: Interval::ONE_MINUTE,
+    toInterval: Interval::FIVE_MINUTES,
+    partitionKey: 'post-views',
+    limit: 1000,
+);
+
+// Roll into multiple targets at once
+Store::rollupIntervalRecords(
+    fromInterval: Interval::FIVE_MINUTES,
+    toInterval: [Interval::HOURLY, Interval::DAILY],
+    partitionKey: 'post-views',
+);
+```
+
+Only records whose time bucket has fully elapsed are eligible for roll-up.
+
+#### Delete and prune
+
+```php
+// Delete specific records by store ULID
+Store::delete($record->getStoreReference());
+Store::delete([$id1, $id2]);
+
+// Remove all daily records at or before a timestamp
+Store::prune(Interval::DAILY, now()->subMonths(3)->getTimestamp(), 'post-views');
+
+// Prune with a row limit per run (useful for large tables)
+Store::prune(Interval::DAILY, now()->subMonths(3)->getTimestamp(), 'post-views', limit: 1000);
+```
+
+### Scheduling Background Jobs
+
+Three jobs cover the full counter lifecycle:
 
 ```php
 use KhanhArtisan\LaravelBackbone\Contracts\Counter\Interval;
 use KhanhArtisan\LaravelBackbone\Counter\Jobs\ClearData;
 use KhanhArtisan\LaravelBackbone\Counter\Jobs\StoreData;
+use KhanhArtisan\LaravelBackbone\Support\Facades\Counter\Store;
 
-// Persist recorded counts from Redis to the database
+// 1. Flush Redis → database (run at or below your recording interval)
 Schedule::job(new StoreData('post-views', Interval::ONE_MINUTE))->everyMinute();
 
-// Prune old counter records (optional)
+// 2. Optionally roll up 1m → 5m → hourly (after StoreData has run)
+Schedule::call(function () {
+    Store::rollupIntervalRecords(
+        Interval::ONE_MINUTE,
+        Interval::FIVE_MINUTES,
+        'post-views',
+    );
+})->everyFiveMinutes();
+
+// 3. Prune old counter rows (optional)
 Schedule::job(new ClearData(
     interval: Interval::DAILY,
     olderThanTime: now()->subMonths(3),
     partitionKey: 'post-views',
 ))->daily();
 ```
+
+| Job / call | When to run | Purpose |
+|---|---|---|
+| `StoreData` | Every minute (or matching interval) | Move counts from Redis to the `counter` table |
+| `rollupIntervalRecords()` | After `StoreData` | Compress fine-grained rows into coarser intervals |
+| `ClearData` | Daily / weekly | Remove expired counter rows |
 
 ---
 
