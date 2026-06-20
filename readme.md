@@ -1,81 +1,69 @@
-**khanhartisan/laravel-backbone** is a PHP package that provides a structured approach to writing backend code in Laravel. By establishing a set of best practices and optimized conventions, it helps developers build cleaner, more maintainable, and scalable applications with minimal effort.
+# Laravel Backbone
 
-I'm open to bug reports, feature requests, and contributions. Feel free to create an issue or pull request.
+**khanhartisan/laravel-backbone** is a Laravel package that provides structured conventions and reusable building blocks for backend development. It helps you ship consistent JSON APIs, organize Eloquent side effects, handle soft-delete cascades at scale, and record high-volume counters — with minimal boilerplate.
 
-# Table of Contents
+## Requirements
+
+| Dependency | Version |
+|---|---|
+| PHP | `^8.2` |
+| Laravel | `^11.0`, `^12.0`, or `^13.0` |
+
+## Features
+
+- **JsonController** — Convention-based REST API controllers with hooks for validation, transactions, query scopes, and response metadata
+- **Repository** — A thin data-access layer used by JsonController, swappable per resource
+- **Model Listeners** — Priority-ordered, event-scoped listeners as an alternative to monolithic model observers
+- **Relation Cascade** — Application-layer, chunked cascade delete/restore for soft-deleted models
+- **Counter** — Redis-backed recording with batched database persistence for high-traffic metrics
+- **JsonApiTest** — One-liner CRUD feature tests for JSON API endpoints
+
+## Table of Contents
 
 - [Installation](#installation)
-- [REST API](#rest-api)
-  - [Resource Controller](#resource-controller)
-    - [Show API](#show-api)
-      - [Visiting the Resource](#visiting-the-resource)
-      - [Additional Data](#additional-data)
-    - [Store API](#store-api)
-      - [Modifying the Store Data](#modifying-the-store-data)
-      - [Store with Transaction](#store-with-transaction)
-      - [Visiting the Resource before Store](#visiting-the-resource-before-store)
-      - [Visiting the Resource after Store](#visiting-the-resource-after-store)
-      - [Additional Data for Store Response](#additional-data-for-store-response)
-    - [Update API](#update-api)
-      - [Modifying the Update Data](#modifying-the-update-data)
-      - [Update with Transaction](#update-with-transaction)
-      - [Visiting the Resource before Update](#visiting-the-resource-before-update)
-      - [Visiting the Resource after Update](#visiting-the-resource-after-update)
-      - [Additional Data for Update Response](#additional-data-for-update-response)
-    - [Destroy API](#destroy-api)
-      - [Destroy with Transaction](#destroy-with-transaction)
-      - [Visiting the Resource before Destroy](#visiting-the-resource-before-destroy)
-      - [Visiting the Resource after Destroy](#visiting-the-resource-after-destroy)
-      - [Additional Data for Destroy Response](#additional-data-for-destroy-response)
-    - [Index API](#index-api)
-      - [Modifying the Index Query](#modifying-the-index-query)
-      - [Visiting the Resource Collection](#visiting-the-resource-collection)
-      - [Additional Data for Index Response](#additional-data-for-index-response)
-      - [Using a custom Resource Collection](#using-a-custom-resource-collection)
-      - [Using a custom Get Query Executor](#using-a-custom-get-query-executor)
-    - [Nested API](#nested-api)
-  - [CRUD Test](#crud-test)
+- [Quick Start](#quick-start)
+- [JsonController](#jsoncontroller)
+  - [Setup](#setup)
+  - [Routes](#routes)
+  - [CRUD Endpoints](#crud-endpoints)
+  - [Extension Hooks](#extension-hooks)
+  - [Resource Visitors](#resource-visitors)
+  - [Additional Response Data](#additional-response-data)
+  - [Index: Filtering & Pagination](#index-filtering--pagination)
+  - [Nested Resources](#nested-resources)
   - [Authorization](#authorization)
-  - [Route](#route)
-- [Model Listener](#model-listener)
-  - [Creating a Model Listener](#creating-a-model-listener)
-  - [Registering Models in a custom path](#registering-models-in-a-custom-path)
-- [Relation Cascade](#relation-cascade)
-  - [Using Relation Cascade](#using-relation-cascade)
-  - [Registering ShouldCascade Models in a custom path](#registering-shouldcascade-models-in-a-custom-path)
 - [Repository](#repository)
+- [Model Listeners](#model-listeners)
+- [Relation Cascade](#relation-cascade)
+- [Counter](#counter)
+- [Testing](#testing)
+- [Artisan Commands](#artisan-commands)
+- [Contributing](#contributing)
 
-# Installation
+---
 
-Requirements:
-- PHP >= 8.2
-- Laravel ^11.0 | ^12.0
+## Installation
 
-Install the package via Composer:
+Install via Composer:
 
 ```bash
 composer require khanhartisan/laravel-backbone
 ```
 
-# REST API
+The package auto-registers `KhanhArtisan\LaravelBackbone\BackboneServiceProvider`. No manual registration is required.
 
-This package provides a set of tools to help you build RESTful APIs in Laravel with just a few lines of code. It includes a resource controller, authorization, query scopes, and more.
+---
 
-## Resource Controller
+## Quick Start
 
-To get started, create a new controller normally using the `php artisan make:controller` command.
+**1. Create a controller and API resource:**
 
 ```bash
 php artisan make:controller PostController
-```
-
-Now generate a Laravel API Resource using the `php artisan make:resource` command.
-
-```bash
 php artisan make:resource PostResource
 ```
 
-Then extends the controller from the `KhanhArtisan\LaravelBackbone\Http\Controllers\JsonController` class and implement the `modelClass` and `resourceClass` methods.
+**2. Extend `JsonController` and wire up your model:**
 
 ```php
 <?php
@@ -84,6 +72,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\PostResource;
 use App\Models\Post;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\ResourceCollection;
 use KhanhArtisan\LaravelBackbone\Http\Controllers\JsonController;
 
 class PostController extends JsonController
@@ -97,45 +87,178 @@ class PostController extends JsonController
     {
         return PostResource::class;
     }
-}
-```
 
-That's it! We just completed the setup for the `PostController`. Now let's continue reading to make the specific API.
+    public function index(Request $request): ResourceCollection
+    {
+        return $this->jsonIndex($request);
+    }
 
-### Show API
-
-To get a single resource, we need to implement the `show` method in the controller.
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Http\Resources\PostResource;
-use App\Models\Post;
-use Illuminate\Http\Request;
-
-class PostController extends JsonController
-{
-    // ...
-    
     public function show(Request $request, Post $post): PostResource
     {
-        // The method below will return the PostResource instance
-        /** @var PostResource */
         return $this->jsonShow($request, $post);
+    }
+
+    public function store(StorePostRequest $request): PostResource
+    {
+        return $this->jsonStore($request);
+    }
+
+    public function update(UpdatePostRequest $request, Post $post): PostResource
+    {
+        return $this->jsonUpdate($request, $post);
+    }
+
+    public function destroy(Request $request, Post $post): PostResource
+    {
+        return $this->jsonDestroy($request, $post);
     }
 }
 ```
 
-Once the `show` method is implemented, and if you defined the [route](#route), you can now access the resource by sending a `GET` request to the `/posts/{post}` endpoint.
+**3. Register routes:**
 
-#### Visiting the Resource
+```php
+Route::resource('posts', PostController::class);
+```
 
-Before returning the resource, you can visit the Eloquent model instance by implementing the `showResourceVisitors` method in the controller.
+That is the full wiring for a paginated index, show, create, update, and delete API backed by Laravel API Resources.
 
-First, let's create a new visitor class that implements the `ResourceVisitorInterface` interface like below:
+---
+
+## JsonController
+
+`JsonController` is the core abstraction for building JSON REST APIs. Each public controller method delegates to a `json*` helper; customization happens through protected hook methods rather than overriding core logic.
+
+### Setup
+
+Your controller must:
+
+1. Extend `KhanhArtisan\LaravelBackbone\Http\Controllers\JsonController`
+2. Implement `modelClass()` returning the Eloquent model FQCN
+3. Optionally override `resourceClass()` (defaults to `JsonResource::class`)
+4. Optionally override `resourceCollectionClass()` for a custom collection resource
+5. Optionally override `repository()` to use a custom repository
+
+Ensure your model defines `$fillable` — only fillable attributes are persisted on store and update.
+
+### Routes
+
+Use Laravel's standard resource routing:
+
+```php
+use App\Http\Controllers\PostController;
+use App\Http\Controllers\CommentController;
+
+Route::resource('posts', PostController::class);
+Route::resource('posts.comments', CommentController::class);
+Route::resource('posts.comments', CommentController::class)->shallow();
+```
+
+### CRUD Endpoints
+
+#### Index — `GET /posts`
+
+```php
+public function index(Request $request): ResourceCollection
+{
+    return $this->jsonIndex($request);
+}
+```
+
+Uses `SimplePaginationExecutor` by default (Laravel's `paginate()`). Returns a paginated `ResourceCollection`.
+
+#### Show — `GET /posts/{post}`
+
+```php
+public function show(Request $request, Post $post): PostResource
+{
+    return $this->jsonShow($request, $post);
+}
+```
+
+Applies show visitors, then wraps the model in your API resource.
+
+#### Store — `POST /posts`
+
+Create a Form Request with validation rules, then:
+
+```php
+public function store(StorePostRequest $request): PostResource
+{
+    return $this->jsonStore($request);
+}
+```
+
+Pass modified data as the second argument when needed:
+
+```php
+$data = $request->validated();
+$data['user_id'] = $request->user()->id;
+
+return $this->jsonStore($request, $data);
+```
+
+Returns a `JsonResource` wrapping the created model. Set an explicit status code in your controller if you need **201 Created** (the bundled `JsonApiTest` helper expects `201` by default).
+
+#### Update — `PATCH /posts/{post}`
+
+```php
+public function update(UpdatePostRequest $request, Post $post): PostResource
+{
+    return $this->jsonUpdate($request, $post);
+}
+```
+
+Optionally pass modified validated data as the third argument:
+
+```php
+return $this->jsonUpdate($request, $post, $request->validated());
+```
+
+#### Destroy — `DELETE /posts/{post}`
+
+```php
+public function destroy(Request $request, Post $post): PostResource
+{
+    return $this->jsonDestroy($request, $post);
+}
+```
+
+Returns the deleted resource with a **200** status code.
+
+### Extension Hooks
+
+Override these protected methods to customize behavior without touching the core `json*` methods.
+
+| Hook | Used by | Default | Purpose |
+|---|---|---|---|
+| `storeWithTransaction()` | Store | `true` | Wrap create in a DB transaction |
+| `updateWithTransaction()` | Update | `true` | Wrap update in a DB transaction |
+| `destroyWithTransaction()` | Destroy | `true` | Wrap delete in a DB transaction |
+| `showResourceVisitors()` | Show | `[]` | Transform model before show response |
+| `storeResourceSavingVisitors()` | Store | `[]` | Transform model before `save()` on create |
+| `storeResourceSavedVisitors()` | Store | show visitors | Transform model after `save()` on create |
+| `updateResourceSavingVisitors()` | Update | `[]` | Transform model before `save()` on update |
+| `updateResourceSavedVisitors()` | Update | show visitors | Transform model after `save()` on update |
+| `destroyResourceDeletingVisitors()` | Destroy | `[]` | Transform model before `delete()` |
+| `destroyResourceDeletedVisitors()` | Destroy | show visitors | Transform model after `delete()` |
+| `showAdditional()` | Show | `[]` | Extra top-level JSON keys on show |
+| `storeAdditional()` | Store | `showAdditional()` | Extra keys on store response |
+| `updateAdditional()` | Update | `showAdditional()` | Extra keys on update response |
+| `destroyAdditional()` | Destroy | `showAdditional()` | Extra keys on destroy response |
+| `indexQueryScopes()` | Index | `[]` | Filter/sort the index query |
+| `indexCollectionVisitors()` | Index | `[]` | Transform the result collection |
+| `indexGetQueryExecutor()` | Index | `SimplePaginationExecutor` | Control how results are fetched |
+| `indexAdditional()` | Index | `$getData->additional()` | Extra keys on index response |
+| `repository()` | All | Default `Repository` | Swap the data-access layer |
+
+> **Note:** Store, update, and destroy responses inherit `showAdditional()` and `showResourceVisitors()` by default unless you override the action-specific hooks.
+
+### Resource Visitors
+
+Visitors let you mutate a model (or collection) at defined lifecycle points. They can be dedicated classes or inline closures.
+
+**Single model visitor** — implement `ResourceVisitorInterface`:
 
 ```php
 <?php
@@ -148,738 +271,96 @@ use KhanhArtisan\LaravelBackbone\Eloquent\ResourceVisitorInterface;
 
 class PostVisitor implements ResourceVisitorInterface
 {
-    /**
-     * Handle an eloquent model
-     *
-     * @param Model $model
-     * @return void
-     */
     public function apply(Model $model): void
     {
-        // Because PHP doesn't support generic types,
-        // so the type of the $model parameter is typed as Model,
-        // But in this case, we know that the model is a Post instance.
         /** @var Post $post */
         $post = $model;
-
-        // Do something with the post
         $post->title = strtoupper($post->title);
     }
 }
 ```
 
-Then let's add the visitor to the `showResourceVisitors` method in the controller.
+Register it in the controller:
 
 ```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Models\Visitors\PostVisitor;
-
-class PostController extends JsonController
+protected function showResourceVisitors(Request $request): array
 {
-    // ...
-    
-    protected function showResourceVisitors(Request $request): array
-    {
-        return [
-            new PostVisitor(),
-        ];
-    }
-}
-```
-
-Additionally, you can use a closure to visit the model directly in the `showResourceVisitors` method. The closure must accept one parameter: the eloquent model instance.
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Models\Post;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    protected function showResourceVisitors(Request $request): array
-    {
-        return [
-            fn (Post $post) => $post->title = strtoupper($post->title),
-        ];
-    }
-}
-```
-
-#### Additional Data
-
-You can add [additional data](https://laravel.com/docs/eloquent-resources#adding-meta-data-when-constructing-resources) to the json response data by implementing the `showAdditional` method in the controller.
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Models\Post;
-use Illuminate\Http\Request;
-use Illuminate\Database\Eloquent\Model;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    protected function showAdditional(Request $request, Model $resource): array
-    {
-        // Because php doesn't support generic types,
-        // so the abstract controller JsonController typed the $resource parameter as Model.
-        // But here we know that the resource is a Post instance
-        /** @var Post $post */
-        $post = $resource;
-    
-        return [
-            'custom_key' => 'custom_value',
-            'meta' => [
-                'key' => 'value',
-            ]
-        ];
-    }
-}
-```
-
-### Store API
-
-To create a new resource, we need to implement the `store` method in the controller.
-
-Before that, you need to make sure that you have defined the `$fillable` property in the model class. For security reasons, only the attributes in the `$fillable` property will be allowed to be stored.
-
-```php
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-
-class Post extends Model
-{
-    protected $fillable = [
-        'title',
-        'content',
-        'status',
+    return [
+        new PostVisitor(),
+        fn (Post $post) => $post->loadCount('comments'),
     ];
 }
 ```
 
-Now, let's create a new request class using the `php artisan make:request` command.
-
-```bash
-php artisan make:request StorePostRequest
-```
-
-Open the `StorePostRequest` class and add the validation rules.
+**Collection visitor** — implement `CollectionVisitorInterface`:
 
 ```php
 <?php
 
-namespace App\Http\Requests;
+namespace App\Models\Visitors;
 
-use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Database\Eloquent\Collection;
+use KhanhArtisan\LaravelBackbone\Eloquent\CollectionVisitorInterface;
 
-class StorePostRequest extends FormRequest
+class PostCollectionVisitor implements CollectionVisitorInterface
 {
-    public function authorize(): bool
+    public function apply(Collection $collection): void
     {
-        // You may want to add an authorization logic here,
-        // or you can leave it as true and implement the authorization in the controller.
-        return true;
-    }
-
-    public function rules(): array
-    {
-        return [
-            'title' => ['required', 'string', 'max:255'],
-            'content' => ['required', 'string', 'max:65535'],
-            'status' => ['required', 'string', 'in:draft,published,archived'],
-        ];
+        $collection->load('author');
     }
 }
 ```
-
-Then, implement the `store` method in the controller.
 
 ```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Http\Resources\PostResource;
-use App\Models\Post;
-
-class PostController extends JsonController
+protected function indexCollectionVisitors(Request $request): array
 {
-    // ...
-    
-    public function store(StorePostRequest $request): PostResource
-    {
-        return $this->jsonStore($request);
-    }
+    return [new PostCollectionVisitor()];
 }
 ```
 
-Once the `store` method is implemented, and if you defined the [route](#route), you can now create a new resource by sending a `POST` request to the `/posts` endpoint.
+### Additional Response Data
 
-#### Modifying the Store Data
-
-Sometimes you may want to modify the data before storing it in the database. You can simply pass your array data as the second argument to the `jsonStore` method like below:
+Add [meta data to API resources](https://laravel.com/docs/eloquent-resources#adding-meta-data-when-constructing-resources) via the `*Additional()` hooks:
 
 ```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Http\Requests\StorePostRequest;
-use App\Http\Resources\PostResource;
-
-class PostController extends JsonController
+protected function showAdditional(Request $request, Model $resource): array
 {
-    // ...
-    
-    public function store(StorePostRequest $request): PostResource
-    {
-        $validatedData = $request->validated();
-        
-        // Modify the data
-        $validatedData['title'] = strtoupper($validatedData['title']);
-        
-        return $this->jsonStore($request, $validatedData);
-    }
+    /** @var Post $post */
+    $post = $resource;
+
+    return [
+        'meta' => ['view_count' => $post->views],
+    ];
 }
 ```
 
-#### Store with Transaction
-
-You can decide whether to use a transaction when storing the data by implementing the `storeWithTransaction` method in the controller. By default, the transaction is enabled.
+For index responses, `indexAdditional()` receives a `GetData` instance:
 
 ```php
-<?php
+use KhanhArtisan\LaravelBackbone\Eloquent\GetData;
 
-namespace App\Http\Controllers;
-
-// ...
-use App\Http\Requests\StorePostRequest;
-use App\Http\Resources\PostResource;
-use Illuminate\Http\Request;
-
-class PostController extends JsonController
+protected function indexAdditional(Request $request, GetData $getData): array
 {
-    // ...
-    
-    protected function storeWithTransaction(Request $request): bool
-    {
-        // Because php doesn't support generic types,
-        // so the abstract controller JsonController typed the $request parameter as Request.
-        // But here we know that the resource is a StorePostRequest instance (corresponding to the request class you created)
-        /** @var StorePostRequest $storePostRequest */
-        $storePostRequest = $request;
-
-        return true; // default is true
-    }
+    return [
+        'meta' => [
+            'total' => $getData->total(),
+            'count' => $getData->getCollection()->count(),
+        ],
+    ];
 }
 ```
 
-#### Visiting the Resource before Store
+### Index: Filtering & Pagination
 
-Before the `save()` method is called, you can visit the Eloquent model instance by implementing the `storeResourceSavingVisitors` method in the controller.
+#### Query scopes
 
-This method returns an array of visitor instances or closures. It is similar to the [showResourceVisitors](#visiting-the-resource) method.
+Return an array of scopes from `indexQueryScopes()`. Keys are identifiers; values are `Scope` instances or closures `(Builder $query, Model $model) => void`.
 
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Models\Visitors\PostVisitor;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    protected function storeResourceSavingVisitors(Request $request): array
-    {
-        return [
-            new PostVisitor(),
-            fn (Post $post) => $post->title = strtoupper($post->title),
-        ];
-    }
-}
-```
-
-#### Visiting the Resource after Store
-
-Just like [visiting the resource before store](#visiting-the-resource-before-store), you can visit the Eloquent model instance after the `save()` method is called by implementing the `storeResourceSavedVisitors` method in the controller.
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Models\Visitors\PostVisitor;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    protected function storeResourceSavedVisitors(Request $request): array
-    {
-        return [
-            new PostVisitor(),
-            fn (Post $post) => $post->title = strtoupper($post->title),
-        ];
-    }
-}
-```
-
-#### Additional Data for Store Response
-
-Just like [additional data](#additional-data) for the show API, you can add additional data to the store response by implementing the `storeAdditional` method in the controller.
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Models\Post;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Http\Request;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    protected function storeAdditional(Request $request, Model $resource): array
-    {
-        // Because php doesn't support generic types,
-        // so the abstract controller JsonController typed the $resource parameter as Model.
-        // But here we know that the resource is a Post instance
-        /** @var Post $post */
-        $post = $resource;
-        
-        return [
-            'custom_key' => 'custom_value',
-            'meta' => [
-                'key' => 'value',
-            ]
-        ];
-    }
-}
-```
-
-### Update API
-
-To update an existing resource, we need to implement the `update` method in the controller.
-
-Before that, you need to make sure that you have defined the `$fillable` property in the model class just as we did in the [store API](#store-api).
-
-Now, let's create a new request class using the `php artisan make:request` command.
-
-```bash
-php artisan make:request UpdatePostRequest
-```
-
-Open the `UpdatePostRequest` class and add the validation rules.
-
-```php
-<?php
-
-namespace App\Http\Requests;
-
-use Illuminate\Foundation\Http\FormRequest;
-
-class UpdatePostRequest extends FormRequest
-{
-    public function authorize(): bool
-    {
-        // You may want to add an authorization logic here,
-        // or you can leave it as true and implement the authorization in the controller.
-        return true;
-    }
-
-    public function rules(): array
-    {
-        return [
-            'title' => ['string', 'max:255'],
-            'content' => ['string', 'max:65535'],
-            'status' => ['string', 'in:draft,published,archived'],
-        ];
-    }
-}
-```
-
-Then, implement the `update` method in the controller.
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Http\Requests\UpdatePostRequest;
-use App\Http\Resources\PostResource;
-use App\Models\Post;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    public function update(UpdatePostRequest $request, Post $post): PostResource
-    {
-        return $this->jsonUpdate($request, $post);
-    }
-}
-```
-
-Once the `update` method is implemented, and if you defined the [route](#route), you can now update the resource by sending a `PATCH` request to the `/posts/{post}` endpoint.
-
-#### Modifying the Update Data
-
-Sometimes you may want to modify the data before updating it in the database. You can simply pass your array data as the third argument to the `jsonUpdate` method like below:
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Http\Requests\UpdatePostRequest;
-use App\Http\Resources\PostResource;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    public function update(UpdatePostRequest $request, Post $post): PostResource
-    {
-        $validatedData = $request->validated();
-        
-        // Modify the data
-        $validatedData['title'] = strtoupper($validatedData['title']);
-        
-        return $this->jsonUpdate($request, $post, $validatedData);
-    }
-}
-```
-
-#### Update with Transaction
-
-You can decide whether to use a transaction when updating the data by implementing the `updateWithTransaction` method in the controller. By default, the transaction is enabled.
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Http\Requests\UpdatePostRequest;
-use App\Http\Resources\PostResource;
-use Illuminate\Http\Request;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    protected function updateWithTransaction(Request $request): bool
-    {
-        // Because php doesn't support generic types,
-        // so the abstract controller JsonController typed the $request parameter as Request.
-        // But here we know that the resource is a UpdatePostRequest instance (corresponding to the request class you created)
-        /** @var UpdatePostRequest $updatePostRequest */
-        $updatePostRequest = $request;
-
-        return true; // default is true
-    }
-}
-```
-
-#### Visiting the Resource before Update
-
-Before the `save()` method is called, you can visit the Eloquent model instance by implementing the `updateResourceSavingVisitors` method in the controller.
-
-This method returns an array of visitor instances or closures. It is similar to the [showResourceVisitors](#visiting-the-resource) method.
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Models\Visitors\PostVisitor;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    protected function updateResourceSavingVisitors(Request $request): array
-    {
-        return [
-            new PostVisitor(),
-            fn (Post $post) => $post->title = strtoupper($post->title),
-        ];
-    }
-}
-```
-
-#### Visiting the Resource after Update
-
-Just like [visiting the resource after store](#visiting-the-resource-after-store), you can visit the Eloquent model instance after the `save()` method is called by implementing the `updateResourceSavedVisitors` method in the controller.
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Models\Visitors\PostVisitor;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    protected function updateResourceSavedVisitors(Request $request): array
-    {
-        return [
-            new PostVisitor(),
-            fn (Post $post) => $post->title = strtoupper($post->title),
-        ];
-    }
-}
-```
-
-#### Additional Data for Update Response
-
-Just like [additional data](#additional-data) for the show API, you can add additional data to the update response by implementing the `updateAdditional` method in the controller.
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Models\Post;
-use Illuminate\Database\Eloquent\Model;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    protected function updateAdditional(Request $request, Model $resource): array
-    {
-        // Because php doesn't support generic types,
-        // so the abstract controller JsonController typed the $resource parameter as Model.
-        // But here we know that the resource is a Post instance
-        /** @var Post $post */
-        $post = $resource;
-        
-        return [
-            'custom_key' => 'custom_value',
-            'meta' => [
-                'key' => 'value',
-            ]
-        ];
-    }
-}
-```
-
-### Destroy API
-
-To delete an existing resource, we need to implement the `destroy` method in the controller.
-
-This method will return the deleted resource with a `200` status code.
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Models\Post;
-use Illuminate\Http\Request;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    public function destroy(Request $request, Post $post): PostResource
-    {
-        return $this->jsonDestroy($request, $post);
-    }
-}
-```
-
-Once the `destroy` method is implemented, and if you defined the [route](#route), you can now delete the resource by sending a `DELETE` request to the `/posts/{post}` endpoint.
-
-#### Destroy with Transaction
-
-You can decide whether to use a transaction when deleting the resource by implementing the `destroyWithTransaction` method in the controller. By default, the transaction is enabled.
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Models\Post;
-use Illuminate\Http\Request;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    protected function destroyWithTransaction(Request $request): bool
-    {
-        return true; // default is true
-    }
-}
-```
-
-#### Visiting the Resource before Destroy
-
-Before the `delete()` method is called, you can visit the Eloquent model instance by implementing the `destroyResourceDeletingVisitors` method in the controller.
-
-This method returns an array of visitor instances or closures. It is similar to the [showResourceVisitors](#visiting-the-resource) method.
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Models\Visitors\PostVisitor;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    protected function destroyResourceDeletingVisitors(Request $request): array
-    {
-        return [
-            new PostVisitor(),
-            fn (Post $post) => $post->title = strtoupper($post->title),
-        ];
-    }
-}
-```
-
-#### Visiting the Resource after Destroy
-
-Just like [visiting the resource before destroy](#visiting-the-resource-before-destroy), you can visit the Eloquent model instance after the `delete()` method is called by implementing the `destroyResourceDeletedVisitors` method in the controller.
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Models\Visitors\PostVisitor;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    protected function destroyResourceDeletedVisitors(Request $request): array
-    {
-        return [
-            new PostVisitor(),
-            fn (Post $post) => $post->title = strtoupper($post->title),
-        ];
-    }
-}
-```
-
-#### Additional Data for Destroy Response
-
-Just like [additional data](#additional-data) for the show API, you can add additional data to the destroy response by implementing the `destroyAdditional` method in the controller.
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Models\Post;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Http\Request;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    protected function destroyAdditional(Request $request, Model $resource): array
-    {
-        // Because php doesn't support generic types,
-        // so the abstract controller JsonController typed the $resource parameter as Model.
-        // But here we know that the resource is a Post instance
-        /** @var Post $post */
-        $post = $resource;
-        
-        return [
-            'custom_key' => 'custom_value',
-            'meta' => [
-                'key' => 'value',
-            ]
-        ];
-    }
-}
-```
-
-### Index API
-
-To get a list of resources, we need to implement the `index` method in the controller.
-
-We will continue to use the `PostController` above as an example.
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use Illuminate\Http\Request;
-use Illuminate\Http\Resources\Json\ResourceCollection;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    public function index(Request $request): ResourceCollection
-    {
-        return $this->jsonIndex($request);
-    }
-}
-```
-
-Once the `index` method is implemented, and if you defined the [route](#route), you can now access the list of resources by sending a `GET` request to the `/posts` endpoint.
-
-#### Modifying the Index Query
-
-You can modify the query used to fetch the resources by overriding the `indexQueryScopes` method in the controller using the Laravel query Scope classes.
-
-The most common use case is to filter the resources based on the query parameters. For example, you can filter the posts by status.
-
-First, let's create a new query scope class using the `php artisan make:scope` command.
+**Using a scope class:**
 
 ```bash
 php artisan make:scope PostStatusScope
 ```
-
-Then, implement the `apply` method in the `PostStatusScope` class like so:
 
 ```php
 <?php
@@ -892,250 +373,55 @@ use Illuminate\Database\Eloquent\Scope;
 
 class PostStatusScope implements Scope
 {
-    /**
-     * Apply the scope to a given Eloquent query builder.
-     */
     public function apply(Builder $builder, Model $model): void
     {
-        // Get the status from the request
-        if (!$status = request()->query('status')
-            or !in_array($status, ['draft', 'published', 'archived'])
-        ) {
-            return;       
+        $status = request()->query('status');
+
+        if (!$status || !in_array($status, ['draft', 'published', 'archived'])) {
+            return;
         }
-        
-        // Apply the status filter
+
         $builder->where('status', $status);
     }
 }
 ```
 
-Finally, let's add the query scope to the `indexQueryScopes` method in the controller. This method should return an array of query scopes with the key being the identifier of the scope and the value being the scope instance.
-
 ```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Models\Scopes\PostStatusScope;
-use Illuminate\Http\Request;
-
-class PostController extends JsonController
+protected function indexQueryScopes(Request $request): array
 {
-    // ...
-    
-    public function indexQueryScopes(Request $request): array
-    {
-        return [
-            
-            // Here we use the class name as the identifier
-            get_class($postStatusScope = new PostStatusScope()) => $postStatusScope,
-        ];
-    }
+    return [
+        PostStatusScope::class => new PostStatusScope(),
+    ];
 }
 ```
 
-You can also use a closure to apply the query scope directly in the `indexQueryScopes` method. The closure must accept two parameters: the query builder and the model instance.
+**Using a closure:**
 
 ```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Models\Post;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Http\Request;
-
-class PostController extends JsonController
+protected function indexQueryScopes(Request $request): array
 {
-    // ...
-    
-    public function indexQueryScopes(Request $request): array
-    {
-        return [
-            'post-status-scope' => function (Builder $query, Post $postModel) {
-
-                // Get the status from the request
-                if (!$status = request()->query('status')
-                    or !in_array($status, ['draft', 'published', 'archived'])
-                ) {
-                    return;       
-                }
-                
-                // Apply the status filter
-                $query->where('status', $status);
-            },            
-        ];
-    }
+    return [
+        'post-title' => function (Builder $query, Post $post) use ($request) {
+            if ($title = $request->query('title')) {
+                $query->where('title', 'like', "%{$title}%");
+            }
+        },
+    ];
 }
 ```
 
-#### Visiting the Resource Collection
-
-Before returning the resource collection, you can visit the Eloquent Collection instance by implementing the `indexCollectionVisitors` method in the controller.
-
-First, let's create a new visitor class that implements the `CollectionVisitorInterface` interface like below:
+#### Custom resource collection
 
 ```php
-<?php
-
-namespace App\Models\Visitors;
-
-use App\Models\Post;
-use Illuminate\Database\Eloquent\Collection;
-use KhanhArtisan\LaravelBackbone\Eloquent\CollectionVisitorInterface;
-
-class PostCollectionVisitor implements CollectionVisitorInterface
+protected function resourceCollectionClass(): string
 {
-    /**
-     * Handle an eloquent collection
-     *
-     * @param Collection $posts
-     * @return void
-     */
-    public function apply(Collection $posts): void
-    {
-        // Do something with the collection of posts
-        $posts->each(function (Post $post) {
-            $post->title = strtoupper($post->title);
-        });
-    }
+    return PostCollection::class;
 }
 ```
 
-Then let's add the visitor to the `indexCollectionVisitors` method in the controller.
+#### Custom query executor
 
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\ModelListeners\PostCollectionVisitor;
-use Illuminate\Http\Request;
-use KhanhArtisan\LaravelBackbone\Eloquent\CollectionVisitorInterface;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    /**
-     * @param Request $request
-     * @return array<CollectionVisitorInterface>
-     */
-    protected function indexCollectionVisitors(Request $request): array
-    {
-        return [
-            new PostCollectionVisitor(),
-        ];
-    }
-}
-```
-
-Additionally, you can use a closure to visit the collection directly in the `indexCollectionVisitors` method. The closure must accept one parameter: the eloquent collection instance.
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Models\Post;
-use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Http\Request;
-use KhanhArtisan\LaravelBackbone\Eloquent\CollectionVisitorInterface;
-
-class PostController extends JsonController
-{
-    // ...
-
-    protected function indexCollectionVisitors(Request $request): array
-    {
-        return [
-            fn (Collection $posts) => $posts->each(fn (Post $post) => $post->title = strtoupper($post->title)),
-        ];
-    }
-}
-```
-
-#### Additional Data for Index Response
-
-You can add [additional data](https://laravel.com/docs/eloquent-resources#adding-meta-data-when-constructing-resources) to the json response data by implementing the `indexAdditional` method in the controller.
-
-Different from the [additional data](#additional-data) for the show API, the `indexAdditional` method will accept two parameters: the request instance and the `GetData` instance.
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Models\Post;
-use Illuminate\Http\Request;
-use KhanhArtisan\LaravelBackbone\Eloquent\GetData;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    protected function indexAdditional(Request $request, GetData $getData): array
-    {
-        return [
-            'custom_key' => 'custom_value',
-            'meta' => [
-                'total' => $getData->total(),
-            ],
-            'additional' => $getData->additional(),
-            'resources_in_this_page' => $getData->getCollection()->count(),
-        ];
-    }
-}
-```
-
-#### Using a Custom Resource Collection
-
-By default, the `jsonIndex` method will use the [collection()](https://laravel.com/docs/eloquent-resources#resource-collections) method from the resource class defined in the `resourceClass` method of your controller. 
-
-If you want to use a custom resource collection, you can define the `resourceCollectionClass` method in the controller.
-
-First we need to create a new resource collection class using the `php artisan make:resource` command.
-
-```bash
-php artisan make:resource PostCollection
-```
-
-Then register the resource collection class in the `resourceCollectionClass` method in the controller.
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Http\Resources\PostCollection;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    protected function resourceCollectionClass(): string
-    {
-        return PostCollection::class;
-    }
-}
-```
-
-#### Using a custom Get Query Executor
-
-Get Query Executor is a class that executes the query to retrieve the resources from the database and return an instance of `GetData`.
-
-`GetData` is a class that contains the collection of resources, the total number of resources, and additional data that you may want to add.
-
-Get Query Executor must implement the `GetQueryExecutorInterface` interface.
-
-Let's create a new query executor:
+Implement `GetQueryExecutorInterface` to control how records are fetched and counted:
 
 ```php
 <?php
@@ -1146,639 +432,97 @@ use Illuminate\Database\Eloquent\Builder;
 use KhanhArtisan\LaravelBackbone\Eloquent\GetData;
 use KhanhArtisan\LaravelBackbone\Eloquent\GetQueryExecutorInterface;
 
-class TestQueryExecutor implements GetQueryExecutorInterface
+class PostQueryExecutor implements GetQueryExecutorInterface
 {
     public function execute(Builder $query): GetData
     {
+        $paginator = $query->paginate(25);
+
         return new GetData(
-            $query->get(),
-            $query->count(),
-            ['custom_key' => 'custom_value']
+            collect($paginator->items()),
+            $paginator->total(),
+            ['per_page' => 25]
         );
     }
 }
 ```
 
-Then register the query executor in the `indexGetQueryExecutor` method in the controller.
-
 ```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\GetQueryExecutors\TestQueryExecutor;
-use Illuminate\Http\Request;
-use KhanhArtisan\LaravelBackbone\Eloquent\GetQueryExecutorInterface;
-
-class PostController extends JsonController
+protected function indexGetQueryExecutor(Request $request): GetQueryExecutorInterface
 {
-    // ...
-    
-    protected function indexGetQueryExecutor(Request $request): GetQueryExecutorInterface
-    {
-        return new TestQueryExecutor();
-    }
+    return new PostQueryExecutor();
 }
 ```
 
-The default GetQueryExecutor will use the [paginate()](https://laravel.com/docs/eloquent-resources#pagination) method to retrieve the resources from the database.
+Built-in executors:
 
-### Nested API
+| Class | Behavior |
+|---|---|
+| `SimplePaginationExecutor` | `paginate()` — **default** |
+| `DefaultExecutor` | `get()` + `count()` — no pagination |
 
-We can also implement [Nested API Resources](https://laravel.com/docs/controllers#restful-nested-resources) using this package.
+### Nested Resources
 
-Simply create a [Resource Controller](#resource-controller) like we did above, and then define the nested route just like you would in Laravel.
-
-Then, inside your controller methods, you will need to accept the parent resource as a parameter.
-
-Continue from the `PostController` example above, let's create a new controller for the `Comment` model.
-
-Take a closer look at the `indexQueryScopes` method in the `CommentController` below. We need to define a query scope to filter the comments by the parent resource (here is the post).
-
-For other methods like `show`, `store`, `update`, `destroy`, you can use the Laravel's [scoped method](https://laravel.com/docs/controllers#restful-scoping-resource-routes) when registering the route to scope the comment by the post.
+Nested APIs work with standard Laravel nested routing. Scope child records in `indexQueryScopes()` and authorize against the parent in each action:
 
 ```php
-<?php
-
-namespace App\Http\Controllers;
-
-use App\Models\Comment;
-use App\Models\Post;
-use Illuminate\Http\Request;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Http\Resources\Json\ResourceCollection;
-use App\Http\Requests\StoreCommentRequest;
-use App\Http\Requests\UpdateCommentRequest;
-use App\Http\Resources\CommentResource;
-
-class CommentController extends JsonController
+public function index(Request $request, Post $post): ResourceCollection
 {
-    protected function modelClass(): string
-    {
-        return Comment::class;
-    }
+    $this->authorize('view', $post);
 
-    protected function resourceClass(): string
-    {
-        return CommentResource::class;
-    }
-    
-    public function index(Request $request, Post $post): ResourceCollection    
-    {
-        // You may authorize the request against the parent resource
-        $this->authorize('view', $post);
-   
-        return $this->jsonIndex($request);
-    }
-    
-    // IMPORTANT:
-    // We need to define a query scope to filter the comments by the parent resource (here is the post)
-    protected function indexQueryScopes(Request $request): array
-    {
-        return [
-            function (Builder $query, Comment $commentModel) use ($request) {
-                
-                // Retrieve the post from the request
-                /** @var Post $post */
-                $post = $request->route('post');
-            
-                // Filter the comments by the post id
-                $query->where('post_id', $post->id);
-            },
-        ];
-    }
-    
-    public function store(StoreCommentRequest $request, Post $post): CommentResource
-    {
-        // You may authorize the request against the parent resource
-        $this->authorize('view', $post);
-        
-        // And then automatically set the post_id attribute
-        $data = $request->validated();
-        $data['post_id'] = $post->id;
-    
-        return $this->jsonStore($request, $data);
-    }
-    
-    public function show(Request $request, Post $post, Comment $comment): CommentResource
-    {
-        // You may authorize the request against the parent resource
-        $this->authorize('view', $post);
+    return $this->jsonIndex($request);
+}
 
-        return $this->jsonShow($request, $comment);
-    }
-    
-    public function update(UpdateCommentRequest $request, Post $post, Comment $comment): CommentResource
-    {
-        // You may authorize the request against the parent resource,
-        // For example, you may want to check if the user can update the post in order to update the comment
-        $this->authorize('update', $post);
+protected function indexQueryScopes(Request $request): array
+{
+    return [
+        'by-post' => function (Builder $query, Comment $comment) use ($request) {
+            $post = $request->route('post');
+            $query->where('post_id', $post->id);
+        },
+    ];
+}
 
-        return $this->jsonUpdate($request, $comment);
-    }
-    
-    public function destroy(Request $request, Post $post, Comment $comment): CommentResource
-    {
-        // You may authorize the request against the parent resource
-        // For example, you may want to check if the user can update the post in order to delete the comment
-        $this->authorize('update', $post);
+public function store(StoreCommentRequest $request, Post $post): CommentResource
+{
+    $this->authorize('view', $post);
 
-        return $this->jsonDestroy($request, $comment);
-    }
+    $data = $request->validated();
+    $data['post_id'] = $post->id;
+
+    return $this->jsonStore($request, $data);
+}
+
+public function show(Request $request, Post $post, Comment $comment): CommentResource
+{
+    $this->authorize('view', $post);
+
+    return $this->jsonShow($request, $comment);
 }
 ```
 
-You can also use the Laravel's [shallow nesting](https://laravel.com/docs/controllers#shallow-nesting) feature and it will work just fine with this package.
+For show, update, and destroy on nested routes, use Laravel's [scoped bindings](https://laravel.com/docs/routing#scoped-nested-resources) so the child is automatically constrained to the parent.
 
-## CRUD Test
+### Authorization
 
-This package provides a simple way to test your CRUD API using the `JsonApiTest` class.
-
-First, let's create a test normally like you would in Laravel.
-
-```bash
-php artisan make:test PostApiTest
-```
-
-Then, implement the basic CRUD test in the test class.
+Authorization is handled in your controller using standard Laravel gates and policies:
 
 ```php
-<?php
-
-namespace Tests\Feature;
-
-// ...
-use App\Models\Post;
-use App\Models\User;
-use Illuminate\Support\Str;
-use KhanhArtisan\LaravelBackbone\Testing\JsonApiTest;
-use KhanhArtisan\LaravelBackbone\Testing\JsonCrudTestData;
-
-class PostApiTest extends TestCase
+public function show(Request $request, Post $post): PostResource
 {
-    // ...
+    $this->authorize('view', $post);
 
-    public function test_basic_crud()
-    {
-        // Prepare the test data
-        $testData = new JsonCrudTestData();
-        
-        // Set mandatory data for the store and update request
-        $testData->setStoreData([
-            'title' => Str::random()
-        ])
-        ->setUpdateData([
-            'title' => Str::random()
-        ]);
-        
-        // Below is optional, you may set or skip any of them
-        $testData
-            // Acting as a user
-            // Default is null, the tester will act as a guest
-            ->actingAs(User::factory()->create())
-            
-            // Set the expected store response code
-            // Default is 201
-            ->setExpectedStoreResponseCode(201)
-            
-            // Set the expected store response data
-            // Default is null and the tester will check
-            // if the response data is the same as the store data
-            ->setExpectedStoreResponseData([
-                'data' => [
-                    'title' => '...something you expected...'
-                ]
-            ])
-            
-            // Set the expected update response code
-            // Default is 200
-            ->setExpectedUpdateResponseCode(200)
-            
-            // Set the expected update response data
-            // Default null and the tester will check
-            // if the response data is the same as the update data
-            ->setExpectedUpdateResponseData([
-                'data' => [
-                    'title' => '...something you expected...'
-                ]
-            ])
-            
-            // Set the expected index response code
-            // Default is 200
-            ->setExpectedIndexResponseCode(200)
-
-            // Default is null and the tester will check
-            // if the response data has 1 record
-            // that is the same as the updated record.
-            ->setExpectedIndexResponseData([
-                'data' => [
-                    [
-                        'title' => '...something you expected...'
-                    ]
-                ]
-            ])
-            
-            // Set the expected show response code
-            // Default is 200
-            ->setExpectedShowResponseCode(200)
-            
-            // Set the expected show response data
-            // Default is null and the tester will check
-            // if the response data is the same as the updated record
-            ->setExpectedShowResponseData([
-                'data' => [
-                    'title' => '...something you expected...'
-                ]
-            ])
-            
-            // Set the expected destroy response code
-            // Default is 200
-            ->setExpectedDestroyResponseCode(200)
-            
-            // Set the expected destroy response data
-            // Default is null and the tester will check
-            // if the response data is the same as the updated record
-            ->setExpectedDestroyResponseData([
-                'data' => [
-                    'title' => '...something you expected...'
-                ]
-            ]);
-    
-        // Initialize the JsonApiTest class,
-        // And perform the basic CRUD test
-        (new JsonApiTest($this))->testBasicCrud(
-            '/api/posts',
-            $testData
-        );
-    }
+    return $this->jsonShow($request, $post);
 }
 ```
 
-## Authorization
+---
 
-You can use Laravel's [Authorization](https://laravel.com/docs/authorization) feature to authorize the request.
+## Repository
 
-In this document, we only give some practical examples of how to authorize the request in the controller.
+The repository abstracts data access from controller logic. `JsonController` uses the default `KhanhArtisan\LaravelBackbone\Eloquent\Repository` unless you override `repository()`.
 
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-// ...
-use App\Models\Post;
-use Illuminate\Support\Facades\Gate;
-
-class PostController extends JsonController
-{
-    // ...
-    
-    public function show(Request $request, Post $post)
-    {
-        // Make sure that you defined the gate logic.
-        // Now this will throw an exception if the user is not authorized
-        Gate::authorize('view-post', $post);
-        
-        // Or if you defined the PostPolicy
-        Gate::authorize('view', $post);
-        
-        // Or you can also do this
-        if ($request->user()->cannot('view', $post)) {
-            abort(403);
-        }
-        
-        return $this->jsonShow($request, $post);
-    }
-}
-```
-
-## Route
-
-As we implemented the [Resource Controller](#resource-controller) above, we can now use [Laravel's Route::resource()](https://laravel.com/docs/12.x/controllers#resource-controllers) method to register the routes.
-
-```php
-<?php
-
-use App\Http\Controllers\PostController;
-use App\Http\Controllers\CommentController;
-
-// This will register the following routes: show, store, update, destroy, index
-Route::resource('posts', PostController::class);
-
-// And for nested resources
-Route::resource('posts.comments', CommentController::class);
-
-// Or for shallow nested resources
-Route::resource('posts.comments', CommentController::class)->shallow();
-```
-
-# Model Listener
-
-Laravel provided the [Model Observers](https://laravel.com/docs/eloquent#observers) feature to listen for Eloquent events. However, if we have a lot of logic to handle, it can be difficult to maintain.
-
-This package provides a more structured approach to handle the Eloquent events by using the Model Listener.
-
-## Creating a Model Listener
-
-Before creating a new listener, you need to update your model to implement the `KhanhArtisan\LaravelBackbone\ModelListener\ObservableModel` interface. This interface is a flag to let the package know that the model should be observed.
-
-```php
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-use KhanhArtisan\LaravelBackbone\ModelListener\ObservableModel;
-
-class Post extends Model implements ObservableModel
-{
-    // ...
-}
-```
-
-Now, create a new listener class using the `php artisan make:model-listener` command.
-
-```bash
-php artisan make:model-listener
-```
-
-Then it will ask you to enter the listener name, the model class, and the events you want to listen to (separated by commas).
-
-Assume that we just created a new listener class named `PostNotificationListener` for the `Post` model and it listens to the `created` and `deleted` events. Now let's take a look at the generated class.
-
-```php
-<?php
-
-namespace App\ModelListeners\Post;
-
-use App\Models\Post;
-use KhanhArtisan\LaravelBackbone\ModelListener\ModelListener;
-use KhanhArtisan\LaravelBackbone\ModelListener\ModelListenerInterface;
-
-class PostNotificationListener extends ModelListener implements ModelListenerInterface
-{
-    /**
-     * Listeners with higher priority will run first.
-     *
-     * @return int
-     */
-    public function priority(): int
-    {
-        return 0;
-    }
-
-    /**
-     * Listen to the events of the given model.
-     *
-     * @return string
-     */
-    public function modelClass(): string
-    {
-        return Post::class;
-    }
-
-    /**
-     * The list of all the events to listen to.
-     *
-     * @return array<string>
-     */
-    public function events(): array
-    {
-        return ["created","deleted"];
-    }
-
-    /**
-     * Handle the event.
-     *
-     * @param Post $post
-     * @param string $event
-     * @return void
-     */
-    protected function _handle(Post $post, string $event): void
-    {
-        // Send notification when post is created
-        if ($event === 'created') {
-            // TODO: Send "created" notification
-        }
-        
-        // Log when post is deleted
-        if ($event === 'deleted') {
-            // TODO: Send "deleted" notification
-        }
-    }
-}
-```
-
-Finally, let's confirm if the listener is registered by using this command
-
-```bash
-php artisan model-listener:show
-```
-
-If you forgot to implement the `ObservableModel` interface in the model, you will see a warning message: **App\Models\Post model is not registered, the listeners may not be triggered.** Otherwise, you will see the registered listeners sorted by priority (higher priority will run first).
-
-## Registering Models in a custom path
-
-By default, this package will look for models in the `app/Models` directory. If you want to register models in a custom path, you can do it in your `AppServiceProvider.php`
-
-```php
-<?php
-
-namespace App\Providers;
-
-// ...
-use KhanhArtisan\LaravelBackbone\ModelListener\Observer;
-
-class AppServiceProvider extends ServiceProvider
-{
-    public function boot(): void
-    {
-        // ...
-        Observer::registerModelsFrom(
-            // The first parameter is the namespace prefix of the models
-            $this->app->getNamespace().'CustomModels', // App\CustomerModels
-            
-            // The second parameter is the path to the models
-            app_path('CustomModels');
-        );
-    }
-}
-```
-
-# Relation Cascade
-
-The traditional approach to handling the cascade operation is to use the foreign key constraints with the `ON DELETE CASCADE` option. However, this approach has some limitations, such as the inability to handle the `softDeletes` and the lack of flexibility.
-
-And that may lead to some performance issues, especially when you have a lot of records to delete. Let's say you have a post with a few millions of comments, and you want to delete the post. The `ON DELETE CASCADE` option will delete all the comments in one query, which can be slow. And some databases even don't support foreign key constraints.
-
-This package provides a more flexible approach to handle the cascade operation by using the `Relation Cascade`. It works by performing the cascade operation in the application layer, and in chunks to avoid performance issues.
-
-## Using Relation Cascade
-
-Only models which implement the [Laravel's SoftDeletes](#https://laravel.com/docs/12.x/eloquent#soft-deleting) can use the Relation Cascade feature.
-
-First, you need to add a migration do your model table to support the cascade operation.
-
-```php
-<?php
-
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
-
-return new class extends Migration
-{
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
-    {
-        Schema::create('posts', function (Blueprint $table) {
-            
-            //...
-            
-            // SoftDeletes is required
-            $table->softDeletes();
-            
-            // Add the cascade columns
-            $table->cascades();
-            
-            // We recommend you to add this index to improve the performance
-            $table->index(['cascade_status', 'deleted_at']);
-        });
-    }
-
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
-        Schema::dropIfExists('posts');
-    }
-};
-```
-
-Now, open your model class, implement the `ShouldCascade` interface, add the `Cascades` trait, and implement the `getCascadeDetails()` method.
-
-```php
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use KhanhArtisan\LaravelBackbone\RelationCascade\Cascades;
-use KhanhArtisan\LaravelBackbone\RelationCascade\CascadeDetails;
-use KhanhArtisan\LaravelBackbone\RelationCascade\ShouldCascade;
-
-class Post extends Model implements ShouldCascade
-{
-    // ...
-    use Cascades;
-    
-    public function getCascadeDetails(): CascadeDetails|array
-    {
-        return [
-        
-            // Register the cascade operation for the "comments" relation
-            (new CascadeDetails($this->comments()))
-                
-                // Cascade delete, default is true
-                ->setShouldDelete(true)
-                
-                // Cascade restore, only work if comments also support soft-delete,
-                // default is true
-                ->setShouldRestore(true)
-                
-                // If true, the comments will be force deleted instead of soft-delete,
-                // default is false
-                ->setShouldForceDelete(false) 
-                
-                // If true, the cascade operation will be wrapped in a transaction,
-                // default is true
-                ->setShouldUseTransaction(true)
-                
-                // If true, the cascade operation will be performed per item,
-                // If you set it to false, the cascade operation will be performed in batch,
-                // which can be faster but the model events will not be triggered.
-                // default is true.
-                ->setShouldDeletePerItem(true)
-        ];
-    }
-    
-    // Optionally, you can define this method to automatically force-delete the model
-    // when all the relations are deleted.
-    // By default, this method returns false.
-    public function autoForceDeleteWhenAllRelationsAreDeleted(): bool
-    {
-        return false;
-    }
-    
-    public function comments(): HasMany
-    {
-        return $this->hasMany(Comment::class);
-    }
-}
-```
-
-Finally, you need to schedule two jobs to handle the cascade operation in the background.
-
-```php
-<?php
-
-use Illuminate\Support\Facades\Schedule;
-use KhanhArtisan\LaravelBackbone\RelationCascade\Jobs\CascadeDelete;
-use KhanhArtisan\LaravelBackbone\RelationCascade\Jobs\CascadeRestore;
-
-// Optional, you may define the records limit and the chunk size
-$recordsLimit = 10000; // default is 10000, this is the maximum number of records to handle per job
-$chunkSize = 100; // default is 100, this is the number of records to handle per execution
-Schedule::job(new CascadeDelete($recordsLimit, $chunkSize))->everyMinute();
-Schedule::job(new CascadeRestore($recordsLimit, $chunkSize))->everyMinute();
-```
-
-Now, when you delete a post, all the comments will be deleted in the background. And when you restore a post, all the comments will be restored.
-
-## Registering ShouldCascade Models in a custom path
-
-By default, this package will look for models in the `app/Models` directory. If you want to register models in a custom path, you can do it in your `AppServiceProvider.php`
-
-```php
-<?php
-
-namespace App\Providers;
-
-// ...
-use KhanhArtisan\LaravelBackbone\RelationCascade\RelationCascadeManager;
-
-class AppServiceProvider extends ServiceProvider
-{
-    public function boot(): void
-    {
-        // ...
-        
-        $this->app->make(RelationCascadeManager::class)
-            ->registerModelsFrom(
-                // The first parameter is the namespace prefix of the models
-                $this->app->getNamespace().'CustomModels', // App\CustomerModels
-                
-                // The second parameter is the path to the models
-                app_path('CustomModels');
-            );
-    }
-}
-```
-
-# Repository
-
-The Repository pattern is a design pattern that abstracts the data access logic from the business logic.
-
-Behind the scenes, the [Resource Controller](#resource-controller) above uses the default Repository to handle the data access logic.
-
-However, if you want to customize the Repository, you can create your own Repository class by implementing the `RepositoryInterface`.
-
-Let's create a new Repository class for the `Post` model.
+To customize, extend `Repository` and implement `RepositoryInterface`:
 
 ```php
 <?php
@@ -1791,166 +535,446 @@ use KhanhArtisan\LaravelBackbone\Eloquent\RepositoryInterface;
 
 class PostRepository extends Repository implements RepositoryInterface
 {
-    public function __construct() 
+    public function __construct()
     {
         parent::__construct(Post::class);
     }
-    
-    // Check the RepositoryInterface for the available methods to override
+
+    // Override any RepositoryInterface method as needed
 }
 ```
 
-By extending the default Repository class, you already implemented the `RepositoryInterface` and you can use the `PostRepository` class in the [Resource Controller](#resource-controller) above like so:
+Register it in your controller:
+
+```php
+protected function repository(): RepositoryInterface
+{
+    return $this->repository ?? $this->repository = new PostRepository();
+}
+```
+
+### Available methods
+
+| Method | Description |
+|---|---|
+| `modelClass()` | Returns the bound model class |
+| `query()` | New Eloquent query builder |
+| `applyQueryScopes()` | Apply scopes to a builder |
+| `applyResourceVisitors()` | Run visitors on a single model |
+| `applyCollectionVisitors()` | Run visitors on a collection |
+| `find()` | Find by ID with optional scopes and visitors |
+| `get()` | Fetch a collection via a query executor |
+| `create()` | Create a model with before/after visitors |
+| `save()` | Update a model with before/after visitors |
+| `delete()` | Delete by ID or model instance |
+| `massDelete()` | Delete all records matching a scoped query |
+| `withoutEvents()` | Run a callback without firing model events |
+
+---
+
+## Model Listeners
+
+Laravel observers work well for simple cases, but complex domain logic can become hard to maintain in a single class. Model Listeners provide a structured alternative: one class per concern, with explicit event subscriptions and priority ordering.
+
+### Setup
+
+**1. Mark the model as observable:**
 
 ```php
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Models;
 
-// ...
-use App\Repositories\PostRepository;
-use KhanhArtisan\LaravelBackbone\Eloquent\RepositoryInterface;
+use Illuminate\Database\Eloquent\Model;
+use KhanhArtisan\LaravelBackbone\ModelListener\ObservableModel;
 
-class PostController extends JsonController
+class Post extends Model implements ObservableModel
 {
-    // ...
+    //
+}
+```
 
-    protected function repository(): RepositoryInterface
+**2. Generate a listener:**
+
+```bash
+php artisan make:model-listener PostNotificationListener --model=Post --events=created,deleted
+```
+
+**3. Implement the generated class:**
+
+```php
+<?php
+
+namespace App\ModelListeners\Post;
+
+use App\Models\Post;
+use KhanhArtisan\LaravelBackbone\ModelListener\ModelListener;
+use KhanhArtisan\LaravelBackbone\ModelListener\ModelListenerInterface;
+
+class PostNotificationListener extends ModelListener implements ModelListenerInterface
+{
+    public function priority(): int
     {
-        return $this->repository ?? $this->repository = new PostRepository();
+        return 0; // Higher values run first
+    }
+
+    public function modelClass(): string
+    {
+        return Post::class;
+    }
+
+    public function events(): array
+    {
+        return ['created', 'deleted'];
+    }
+
+    protected function _handle(Post $post, string $event): void
+    {
+        if ($event === 'created') {
+            // Notify subscribers
+        }
+
+        if ($event === 'deleted') {
+            // Clean up related data
+        }
     }
 }
 ```
 
-[//]: # (## Counter)
+**4. Verify registration:**
 
-[//]: # ()
-[//]: # (When I build my applications, I often need to count the number of views for a post, a product, or for the whole website. And I found that it's not easy to handle the counting operation in a scalable way.)
+```bash
+php artisan model-listener:show
+```
 
-[//]: # ()
-[//]: # (Imagine you have a blog with millions of visitors daily, and you want to count the number of views for each post as well as for the whole website. The simple approach is to increment the counter in the database every time a visitor views the post. However, this approach can be slow and can lead to performance issues.)
+If the model does not implement `ObservableModel`, the command warns that listeners may not fire.
 
-[//]: # ()
-[//]: # (This package provides a more scalable approach to handle the counting operation, called the **Counter**. It works by storing the counting data in the cache and then periodically updating the database in the background.)
+### Custom model paths
 
-[//]: # ()
-[//]: # (### Using Counter)
+By default, models are discovered in `app/Models` and listeners in `app/ModelListeners`. Register additional paths in `AppServiceProvider`:
 
-[//]: # ()
-[//]: # (Currently, the Counter feature only support Redis as the cache driver. Make sure you have Redis installed and configured in your Laravel application.)
+```php
+use KhanhArtisan\LaravelBackbone\ModelListener\Observer;
 
-[//]: # ()
-[//]: # (First, let's publish the database migration file.)
+Observer::registerModelsFrom(
+    $this->app->getNamespace().'CustomModels',
+    app_path('CustomModels')
+);
+```
 
-[//]: # ()
-[//]: # (```bash)
+### Singleton listeners
 
-[//]: # (php artisan vendor:publish --tag=laravel-backbone-counter-migrations)
+Override `isSingleton()` to return `false` if a fresh listener instance should be created for each event dispatch (default is `true`).
 
-[//]: # (```)
+---
 
-[//]: # ()
-[//]: # (Then, run the migration to create the `counter` table.)
+## Relation Cascade
 
-[//]: # ()
-[//]: # (```bash)
+Database-level `ON DELETE CASCADE` does not work with soft deletes, can lock large tables, and is unavailable on some databases. Relation Cascade performs cascade operations in the application layer, processing records in configurable chunks via queued jobs.
 
-[//]: # (php artisan migrate)
+> Only models using Laravel's [SoftDeletes](https://laravel.com/docs/eloquent#soft-deleting) trait can use this feature.
 
-[//]: # (```)
+### Migration
 
-[//]: # ()
-[//]: # (Optionally, you can publish the configuration file if you want to customize the configuration. By default, the counter will use Redis from "cache" connection configured in your Laravel application. If you are happy with the default configuration, you can skip this step.)
+Add soft deletes and cascade tracking columns using the provided Blueprint macro:
 
-[//]: # ()
-[//]: # (```bash)
+```php
+Schema::create('posts', function (Blueprint $table) {
+    $table->id();
+    // ... other columns
 
-[//]: # (php artisan vendor:publish --tag=laravel-backbone-counter-config)
+    $table->softDeletes();
+    $table->cascades(); // cascade_status, cascade_updated_at, and index
 
-[//]: # (```)
+    $table->index(['cascade_status', 'deleted_at']);
+});
+```
 
-[//]: # ()
-[//]: # (Now in your application, you can use the `Counter` facade to increment the counter. Let's get back to the sample PostController above, and we will increment the view counter every time the post is viewed.)
+The `cascades()` macro adds:
 
-[//]: # ()
-[//]: # (```php)
+- `cascade_status` — tracks idle, pending delete, pending restore, etc.
+- `cascade_updated_at` — last cascade state change
+- An index on `(cascade_status, cascade_updated_at)`
 
-[//]: # (<?php)
+### Model configuration
 
-[//]: # ()
-[//]: # (namespace App\Http\Controllers;)
+```php
+<?php
 
-[//]: # ()
-[//]: # (use App\Models\Post;)
+namespace App\Models;
 
-[//]: # (use KhanhArtisan\LaravelBackbone\Support\Facades\Counter\Recorder;)
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use KhanhArtisan\LaravelBackbone\RelationCascade\Cascades;
+use KhanhArtisan\LaravelBackbone\RelationCascade\CascadeDetails;
+use KhanhArtisan\LaravelBackbone\RelationCascade\ShouldCascade;
 
-[//]: # (use KhanhArtisan\LaravelBackbone\Contracts\Counter\Interval;)
+class Post extends Model implements ShouldCascade
+{
+    use SoftDeletes, Cascades;
 
-[//]: # ()
-[//]: # (class PostController extends JsonController)
+    public function getCascadeDetails(): CascadeDetails|array
+    {
+        return [
+            (new CascadeDetails($this->comments()))
+                ->setShouldDelete(true)
+                ->setShouldRestore(true)
+                ->setShouldForceDelete(false)
+                ->setShouldUseTransaction(true)
+                ->setShouldDeletePerItem(true),
+        ];
+    }
 
-[//]: # ({)
+    public function autoForceDeleteWhenAllRelationsAreDeleted(): bool
+    {
+        return false;
+    }
 
-[//]: # (    // ...)
+    public function comments(): HasMany
+    {
+        return $this->hasMany(Comment::class);
+    }
+}
+```
 
-[//]: # (    )
-[//]: # (    public function show&#40;Request $request, Post $post&#41;)
+| Option | Default | Description |
+|---|---|---|
+| `setShouldDelete()` | `true` | Cascade soft-delete to related records |
+| `setShouldRestore()` | `true` | Cascade restore when parent is restored |
+| `setShouldForceDelete()` | `false` | Force-delete related records instead of soft-deleting |
+| `setShouldUseTransaction()` | `true` | Wrap each cascade batch in a transaction |
+| `setShouldDeletePerItem()` | `true` | Delete one-by-one (fires events) vs. batch delete |
 
-[//]: # (    {)
+### Scheduling
 
-[//]: # (        // Increment the view counter)
+Schedule the background jobs in `routes/console.php` or your scheduler:
 
-[//]: # (        Recorder::record&#40;)
+```php
+use Illuminate\Support\Facades\Schedule;
+use KhanhArtisan\LaravelBackbone\RelationCascade\Jobs\CascadeDelete;
+use KhanhArtisan\LaravelBackbone\RelationCascade\Jobs\CascadeRestore;
 
-[//]: # (            'post-views', // The "partition" key, you can choose your own key)
+$recordsLimit = 10000; // max records per job run
+$chunkSize = 100;      // records processed per iteration
 
-[//]: # (            Interval::ONE_MINUTE, // How frequent the data should be updated in the database)
+Schedule::job(new CascadeDelete($recordsLimit, $chunkSize))->everyMinute();
+Schedule::job(new CascadeRestore($recordsLimit, $chunkSize))->everyMinute();
+```
 
-[//]: # (            $post->id // The "reference" key, here we use the post id)
+When a post is soft-deleted, its comments are queued for cascade deletion. Restoring the post queues a cascade restore.
 
-[//]: # (            1, // The increment value, default is 1)
+### Custom model paths
 
-[//]: # (        &#41;;)
+```php
+use KhanhArtisan\LaravelBackbone\RelationCascade\RelationCascadeManager;
 
-[//]: # (        )
-[//]: # (        return $this->jsonShow&#40;$request, $post&#41;;)
+$this->app->make(RelationCascadeManager::class)->registerModelsFrom(
+    $this->app->getNamespace().'CustomModels',
+    app_path('CustomModels')
+);
+```
 
-[//]: # (    })
+---
 
-[//]: # (})
+## Counter
 
-[//]: # (```)
+The Counter subsystem records high-frequency events (page views, impressions, etc.) in Redis and periodically flushes aggregated data to the database. This avoids write amplification on hot rows during traffic spikes.
 
-[//]: # ()
-[//]: # (Below is the list of available intervals:)
+> The default recorder driver requires **Redis**. Ensure Redis is configured as your cache (or counter) connection.
 
-[//]: # ()
-[//]: # (| Interval                  | Description            |)
+### Setup
 
-[//]: # (|---------------------------|------------------------|)
+**1. Publish and run the migration:**
 
-[//]: # (| Interval::ONE_MINUTE      | Every minute           |)
+```bash
+php artisan vendor:publish --tag=laravel-backbone-counter-migration
+php artisan migrate
+```
 
-[//]: # (| Interval::FIVE_MINUTES    | Every five minutes     |)
+**2. Optionally publish configuration:**
 
-[//]: # (| Interval::TEN_MINUTES     | Every ten minutes      |)
+```bash
+php artisan vendor:publish --tag=laravel-backbone-counter-config
+```
 
-[//]: # (| Interval::FIFTEEN_MINUTES | Every fifteen minutes  |)
+Default configuration (`config/counter.php`):
 
-[//]: # (| Interval::THIRTY_MINUTES  | Every thirty minutes   |)
+| Key | Env variable | Default |
+|---|---|---|
+| `default_recorder` | `COUNTER_DEFAULT_RECORDER` | `redis` |
+| `default_store` | `COUNTER_DEFAULT_STORE` | `database` |
+| `recorders.redis.connection` | `COUNTER_RECORDER_REDIS_CONNECTION` | `cache` |
+| `recorders.redis.expiration` | `COUNTER_RECORDER_REDIS_EXPIRATION` | `86400` |
+| `stores.database.connection` | `COUNTER_STORE_DATABASE_CONNECTION` | default DB |
+| `stores.database.table` | `COUNTER_STORE_DATABASE_TABLE` | `counter` |
 
-[//]: # (| Interval::HOURLY          | Every hour             |)
+### Recording events
 
-[//]: # (| Interval::DAILY           | Every day              |)
+Use the `Recorder` facade in your application code:
 
-[//]: # ()
-[//]: # (The greater the interval, the less frequent the data will be updated in the database. You can choose the interval that best suits your application.)
+```php
+use KhanhArtisan\LaravelBackbone\Contracts\Counter\Interval;
+use KhanhArtisan\LaravelBackbone\Support\Facades\Counter\Recorder;
 
-[//]: # ()
-[//]: # (Finally, you need to schedule a job to import data from the cache to the database in the background.)
+public function show(Request $request, Post $post): PostResource
+{
+    Recorder::record(
+        partitionKey: 'post-views',
+        interval: Interval::ONE_MINUTE,
+        reference: $post->id,
+        value: 1,
+    );
 
-[//]: # ()
-[//]: # (```php)
+    return $this->jsonShow($request, $post);
+}
+```
 
-[//]: # (```)
+| Parameter | Description |
+|---|---|
+| `partitionKey` | Logical grouping for related counters (e.g. `'post-views'`) |
+| `interval` | How often data is rolled up to the database |
+| `reference` | Entity identifier (e.g. post ID) |
+| `value` | Increment amount (default `1`) |
+| `shardSize` | Max references per Redis shard (default `1000`) |
+| `eventTime` | Unix timestamp override (default: now) |
+
+### Available intervals
+
+| Constant | Roll-up period |
+|---|---|
+| `Interval::ONE_MINUTE` | Every minute |
+| `Interval::FIVE_MINUTES` | Every 5 minutes |
+| `Interval::TEN_MINUTES` | Every 10 minutes |
+| `Interval::FIFTEEN_MINUTES` | Every 15 minutes |
+| `Interval::THIRTY_MINUTES` | Every 30 minutes |
+| `Interval::HOURLY` | Every hour |
+| `Interval::DAILY` | Every day |
+| `Interval::WEEKLY` | Every week |
+| `Interval::MONTHLY` | Every month |
+| `Interval::YEARLY` | Every year |
+
+Longer intervals reduce database write frequency. Choose based on how fresh your metrics need to be.
+
+### Scheduling background jobs
+
+Flush Redis data to the database and prune old records via scheduled jobs:
+
+```php
+use KhanhArtisan\LaravelBackbone\Contracts\Counter\Interval;
+use KhanhArtisan\LaravelBackbone\Counter\Jobs\ClearData;
+use KhanhArtisan\LaravelBackbone\Counter\Jobs\StoreData;
+
+// Persist recorded counts from Redis to the database
+Schedule::job(new StoreData('post-views', Interval::ONE_MINUTE))->everyMinute();
+
+// Prune old counter records (optional)
+Schedule::job(new ClearData(
+    interval: Interval::DAILY,
+    olderThanTime: now()->subMonths(3),
+    partitionKey: 'post-views',
+))->daily();
+```
+
+---
+
+## Testing
+
+The package includes `JsonApiTest` for end-to-end CRUD feature tests against JSON API endpoints.
+
+```bash
+php artisan make:test PostApiTest
+```
+
+```php
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
+use KhanhArtisan\LaravelBackbone\Testing\JsonApiTest;
+use KhanhArtisan\LaravelBackbone\Testing\JsonCrudTestData;
+use Tests\TestCase;
+
+class PostApiTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_basic_crud(): void
+    {
+        $testData = (new JsonCrudTestData())
+            ->setStoreData(['title' => Str::random()])
+            ->setUpdateData(['title' => Str::random()])
+            ->actingAs(User::factory()->create());
+
+        (new JsonApiTest($this))->testBasicCrud('/api/posts', $testData);
+    }
+}
+```
+
+`testBasicCrud()` runs store → update → index → show → destroy in sequence, asserting response codes and data by default.
+
+### Customizing expectations
+
+| Method | Default | Description |
+|---|---|---|
+| `setStoreData()` | — | Payload for POST (required) |
+| `setUpdateData()` | — | Payload for PATCH (required) |
+| `actingAs()` | guest | Authenticated user |
+| `setExpectedStoreResponseCode()` | `201` | Expected POST status |
+| `setExpectedUpdateResponseCode()` | `200` | Expected PATCH status |
+| `setExpectedIndexResponseCode()` | `200` | Expected GET index status |
+| `setExpectedShowResponseCode()` | `200` | Expected GET show status |
+| `setExpectedDestroyResponseCode()` | `200` | Expected DELETE status |
+| `setExpected*ResponseData()` | auto-match | Override expected JSON body |
+
+Set custom URIs per action (`setStoreUri()`, `setUpdateUri()`, etc.) when testing nested or non-standard routes.
+
+---
+
+## Artisan Commands
+
+| Command | Description |
+|---|---|
+| `make:model-listener` | Scaffold a model listener class |
+| `model-listener:show` | List registered listeners and their priorities |
+
+### `make:model-listener` options
+
+```bash
+php artisan make:model-listener PostNotificationListener \
+    --model=App\\Models\\Post \
+    --events=created,updated,deleted \
+    --path=ModelListeners\\Post
+```
+
+| Option | Description |
+|---|---|
+| `--model` | Fully qualified model class |
+| `--events` | Comma-separated Eloquent events |
+| `--path` | Namespace path under `app/` |
+
+---
+
+## Contributing
+
+Bug reports, feature requests, and pull requests are welcome. Please open an issue before submitting large changes so we can discuss the approach.
+
+When contributing:
+
+1. Follow existing code style and conventions
+2. Add or update tests for behavioral changes
+3. Run the test suite before submitting:
+
+```bash
+composer test
+```
+
+---
+
+## License
+
+This package is open-source software licensed under the [MIT license](https://opensource.org/licenses/MIT).
