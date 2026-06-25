@@ -51,7 +51,7 @@ class RedisRecorder implements Recorder
                 }
 
                 // Register the reference key to the shard
-                if (!$this->registerReferenceToShard($partitionKey, $interval, $time, $shardKey, $reference)) {
+                if (!$this->registerReferenceToShard($partitionKey, $interval, $time, $shardKey, (string) $reference)) {
                     return false;
                 }
 
