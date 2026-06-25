@@ -231,9 +231,19 @@ class DatabaseStore implements Store
             ->take($limit);
 
         // Cursor
-        if ($cursorId
-            and $cursor = $this->connection->table($this->table)->find($cursorId)
-        ) {
+        $cursor = null;
+        if ($cursorId) {
+            $cursor = $this
+                ->connection
+                ->table($this->table)
+                ->where('id', strval($cursorId))
+                ->where('partition', $partitionKey)
+                ->where('interval', $interval->value)
+                ->where('time', $time)
+                ->first();
+        }
+
+        if ($cursor) {
             $query->where(
                 fn (Builder $subQuery) => $subQuery
                     ->where('value', $sort === 'asc' ? '>' : '<', $cursor->value)
@@ -330,8 +340,9 @@ class DatabaseStore implements Store
         }
 
         $ids = collect($id)
-            ->map(fn ($i) => strval($i))
-            ->filter(fn ($i) => is_string($i) or is_int($i))
+            ->filter(fn ($i) => is_string($i) || is_int($i))
+            ->map(fn ($i) => trim(strval($i)))
+            ->filter(fn (string $i) => $i !== '')
             ->values()
             ->toArray();
 
@@ -404,7 +415,7 @@ class DatabaseStore implements Store
                 $query->delete();
             }
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return false;
         }
 
