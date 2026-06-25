@@ -277,10 +277,8 @@ class RedisRecorder implements Recorder
      */
     protected function registerReferenceToShard(string $partitionKey, Interval $interval, int $time, ShardKey $shardKey, string $reference): bool
     {
-        $references = $this->getShardReferences($partitionKey, $interval, $time, $shardKey);
-
-        // Ignore if reference already exists
-        if (in_array($reference, $references)) {
+        // Fast path: avoid lock when the reference already exists.
+        if (in_array($reference, $this->getShardReferences($partitionKey, $interval, $time, $shardKey), true)) {
             return true;
         }
 
@@ -291,6 +289,13 @@ class RedisRecorder implements Recorder
         $lock = $this->redis->lock(sha1('lock|'.json_encode($tags)), $timeout);
         try {
             $lock->block($timeout);
+            $references = $this->getShardReferences($partitionKey, $interval, $time, $shardKey);
+
+            // Ignore if the reference already exists
+            if (in_array($reference, $references, true)) {
+                return true;
+            }
+
             $references[] = $reference;
             $this->redis->tags($tags)->put('references', $references, config('counter.expiration'));
         } catch (\Exception $e) {
