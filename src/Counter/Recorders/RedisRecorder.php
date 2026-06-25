@@ -30,7 +30,7 @@ class RedisRecorder implements Recorder
         // Hit in silence
         try {
 
-            $time = $eventTime ?: time();
+            $time = $eventTime ?? time();
 
             // Record hit if shard key found
             if ($shardKey = $this->getShardKeyForReference($partitionKey, $interval, $time, $reference)) {
@@ -169,7 +169,7 @@ class RedisRecorder implements Recorder
                           ?ShardKey $shardKey = null): bool
     {
         // For redis, can only flush if interval and time are provided
-        if (!$interval or !$time) {
+        if (!$interval || is_null($time)) {
             return false;
         }
 
