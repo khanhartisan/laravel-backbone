@@ -61,6 +61,6 @@ class Record
      */
     public function getStoreReference(): ?string
     {
-        return strval($this->storeReference);
+        return is_null($this->storeReference) ? null : strval($this->storeReference);
     }
 }
