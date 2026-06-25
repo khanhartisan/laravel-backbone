@@ -82,7 +82,7 @@ class RedisRecorder implements Recorder
             }
 
             return false;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             if (env('APP_DEBUG')) {
                 throw $e;
             }
@@ -211,7 +211,7 @@ class RedisRecorder implements Recorder
 
             return true;
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             if (env('APP_DEBUG')) {
                 throw $e;
             }
@@ -298,7 +298,7 @@ class RedisRecorder implements Recorder
 
             $references[] = $reference;
             $this->redis->tags($tags)->put('references', $references, config('counter.expiration'));
-        } catch (\Exception $e) {
+        } catch (\Throwable) {
             return false;
         } finally {
             optional($lock)->release();
