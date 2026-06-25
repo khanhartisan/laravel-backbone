@@ -222,7 +222,7 @@ class DatabaseStore implements Store
 
         $query = $this
             ->connection
-            ->table('counter')
+            ->table($this->table)
             ->where('partition', $partitionKey)
             ->where('interval', $interval->value)
             ->where('time', $time)
@@ -339,7 +339,7 @@ class DatabaseStore implements Store
             return false;
         }
 
-        return $this->connection->table('counter')->whereIn('id', $ids)->delete();
+        return $this->connection->table($this->table)->whereIn('id', $ids)->delete();
     }
 
     /**
